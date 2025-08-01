@@ -1,0 +1,9 @@
+Adafruit_SSD1306
+Adafruit_GFX
+ESPmDNS
+Preferences
+ESPAsyncWebServer
+AsyncElegantOTA
+qrcode.h
+Servo
+esp_now
