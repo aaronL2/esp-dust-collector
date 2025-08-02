@@ -1,4 +1,3 @@
-
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <Wire.h>
@@ -7,6 +6,8 @@
 #include "qrcode.h"
 
 #define RELAY_PIN 5
+#define QR_VERSION 3
+#define QR_BUF_SIZE 138  // qrcode_getBufferSize(3)
 
 const char* ssid = "Landry";
 const char* password = "1122334455";
@@ -14,43 +15,49 @@ const char* hostname = "base";
 
 AsyncWebServer server(80);
 
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0);
+U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0);  // Page buffer mode
+uint8_t qrcodeData[QR_BUF_SIZE];
+QRCode qrcode;
 
 void showInfo() {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tf);
-  u8g2.drawStr(0, 10, "ESP32 BASE");
-  u8g2.drawStr(0, 22, ("Name: " + String(hostname)).c_str());
-  u8g2.drawStr(0, 34, ("IP: " + WiFi.localIP().toString()).c_str());
-  u8g2.drawStr(0, 46, ("MAC: " + WiFi.macAddress()).c_str());
-  u8g2.sendBuffer();
+  u8g2.firstPage();
+  do {
+    u8g2.setFont(u8g2_font_6x10_tf);
+    u8g2.drawStr(0, 10, "ESP32 BASE");
+    u8g2.drawStr(0, 22, ("Name: " + String(hostname)).c_str());
+    u8g2.drawStr(0, 34, ("IP: " + WiFi.localIP().toString()).c_str());
+    u8g2.drawStr(0, 46, ("MAC: " + WiFi.macAddress()).c_str());
+  } while (u8g2.nextPage());
 }
 
 void showQRCodeU8g2(String url) {
-  QRCode qrcode;
-  uint8_t qrcodeData[qrcode_getBufferSize(3)];
-  qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, url.c_str());
+  qrcode_initText(&qrcode, qrcodeData, QR_VERSION, ECC_LOW, url.c_str());
 
-  u8g2.clearBuffer();
   int scale = 2;
   int offset_x = (128 - qrcode.size * scale) / 2;
   int offset_y = (64 - qrcode.size * scale) / 2;
 
-  for (uint8_t y = 0; y < qrcode.size; y++) {
-    for (uint8_t x = 0; x < qrcode.size; x++) {
-      if (qrcode_getModule(&qrcode, x, y)) {
-        u8g2.drawBox(offset_x + x * scale, offset_y + y * scale, scale, scale);
+  u8g2.firstPage();
+  do {
+    for (uint8_t y = 0; y < qrcode.size; y++) {
+      for (uint8_t x = 0; x < qrcode.size; x++) {
+        if (qrcode_getModule(&qrcode, x, y)) {
+          u8g2.drawBox(offset_x + x * scale, offset_y + y * scale, scale, scale);
+        }
       }
     }
-  }
-  u8g2.sendBuffer();
+  } while (u8g2.nextPage());
 }
 
 void setup() {
   Serial.begin(115200);
+  delay(100);
+  Serial.println("Booting setup...");
+  
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, LOW);
 
+  Serial.println("Initializing OLED...");
   u8g2.begin();
 
   WiFi.mode(WIFI_STA);
@@ -61,7 +68,7 @@ void setup() {
     Serial.print(".");
   }
   Serial.println("\nConnected!");
-  Serial.println("IP: " + WiFi.localIP().toString());
+  Serial.print("IP: "); Serial.println(WiFi.localIP());
 
   if (MDNS.begin(hostname)) {
     Serial.println("mDNS responder started");
@@ -86,8 +93,19 @@ void setup() {
 }
 
 void loop() {
-  digitalWrite(RELAY_PIN, HIGH);
-  delay(2000);
-  digitalWrite(RELAY_PIN, LOW);
-  delay(3000);
+  static unsigned long lastToggle = 0;
+  static bool relayState = false;
+  unsigned long now = millis();
+
+  if (relayState && now - lastToggle >= 2000) {
+    relayState = false;
+    digitalWrite(RELAY_PIN, LOW);
+    lastToggle = now;
+  } else if (!relayState && now - lastToggle >= 3000) {
+    relayState = true;
+    digitalWrite(RELAY_PIN, HIGH);
+    lastToggle = now;
+  }
+
+  delay(10);  // Yield to avoid watchdog reset
 }
