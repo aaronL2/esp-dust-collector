@@ -6,6 +6,8 @@
 #include "qrcode.h"
 
 #define RELAY_PIN 5
+#define RELAY_ON  LOW   // active-low relay
+#define RELAY_OFF HIGH  // drive HIGH to keep off
 #define QR_VERSION 3
 #define QR_BUF_SIZE 138  // qrcode_getBufferSize(3)
 
@@ -55,7 +57,7 @@ void setup() {
   Serial.println("Booting setup...");
   
   pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW);
+  digitalWrite(RELAY_PIN, RELAY_OFF); // ensure known startup state
 
   Serial.println("Initializing OLED...");
   u8g2.begin();
@@ -90,7 +92,12 @@ void setup() {
   showInfo();
   delay(3000);
   showQRCodeU8g2("http://base.local");
+  Serial.println("Setup complete. Starting relay cycle...");
 }
+
+#define RELAY_TOGGLE_INTERVAL 5000  // 5 seconds
+unsigned long lastToggleTime = 0;
+bool relayState = false;
 
 void loop() {
   static unsigned long lastToggle = 0;
@@ -99,13 +106,15 @@ void loop() {
 
   if (relayState && now - lastToggle >= 2000) {
     relayState = false;
-    digitalWrite(RELAY_PIN, LOW);
+    digitalWrite(RELAY_PIN, RELAY_OFF);
+    Serial.println("Relay toggled: OFF");
     lastToggle = now;
   } else if (!relayState && now - lastToggle >= 3000) {
     relayState = true;
-    digitalWrite(RELAY_PIN, HIGH);
+    digitalWrite(RELAY_PIN, RELAY_ON);
+    Serial.println("Relay toggled: ON");
     lastToggle = now;
   }
 
-  delay(10);  // Yield to avoid watchdog reset
+  delay(10);
 }
