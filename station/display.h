@@ -5,7 +5,7 @@ class Display {
 public:
   void begin();
   void showDeviceInfo(const String& name);
-  void drawQRCode(const String& url);
+  void showQRCode(const String& url);
 };
 
 extern Display display;

@@ -1,7 +1,7 @@
 #include "comms.h"
 #include "servo_control.h"
 
-CommsClass Comms;
+CommsClass comms;
 
 void CommsClass::begin() {
   if (esp_now_init() != ESP_OK) {

@@ -16,6 +16,6 @@ private:
   static void onReceive(const uint8_t* mac, const uint8_t* data, int len);
 };
 
-extern CommsClass Comms;
+extern CommsClass comms;
 
 #endif
