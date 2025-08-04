@@ -1,14 +1,17 @@
-
 #include <WiFi.h>
-#include <Wire.h>
-#include <U8g2lib.h>
-#include <ESPAsyncWebServer.h>
+#include "config_ui.h"
+#include "display.h"
+#include "servo_control.h"
 
 void setup() {
   Serial.begin(115200);
-  // Station startup logic placeholder
+  WiFi.begin("Landry");
+  configUI.begin();
+  display.begin();
+  display.showDeviceInfo(configUI.getFriendlyName());
+  ServoControl.begin();
 }
 
 void loop() {
-  // Station monitoring loop placeholder
+  // Nothing for now
 }
