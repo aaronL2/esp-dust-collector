@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP Dust Collector Base</title>
+  <meta charset="utf-8" />
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h1, h2 { color: #333; }
+    li { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Dust Collector Base</h1>
+  <ul>
+    <li><strong>Name:</strong> <span id="name"></span></li>
+    <li><strong>IP Address:</strong> <span id="ip"></span></li>
+    <li><strong>mDNS:</strong> <span id="mdns"></span></li>
+    <li><strong>MAC Address:</strong> <span id="mac"></span></li>
+  </ul>
+
+  <h2>Registered Stations</h2>
+  <ul id="stations"></ul>
+
+  <script>
+    fetch("/info")
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("name").textContent = data.name;
+        document.getElementById("ip").textContent = data.ip;
+        document.getElementById("mdns").textContent = data.mdns;
+        document.getElementById("mac").textContent = data.mac;
+      });
+
+    fetch("/registry.json")
+      .then(res => res.json())
+      .then(reg => {
+        const ul = document.getElementById("stations");
+        reg.forEach(entry => {
+          const li = document.createElement("li");
+          li.textContent = `${entry.name} (${entry.mac})`;
+          ul.appendChild(li);
+        });
+      });
+  </script>
+</body>
+</html>

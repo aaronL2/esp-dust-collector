@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Station Info</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    h1 { margin-bottom: 0.5em; }
+    .info label { font-weight: bold; display: inline-block; width: 80px; }
+    .info code { font-family: monospace; }
+    .info p { margin: 0.25em 0; }
+    .section { margin-bottom: 2em; }
+  </style>
+</head>
+<body>
+  <h1>Station</h1>
+
+  <div class="section info">
+    <p><label>Name:</label> <code id="stationName">...</code></p>
+    <p><label>MAC:</label> <code id="stationMac">...</code></p>
+    <p><label>IP:</label> <code id="stationIP">...</code></p>
+    <p><label>mDNS:</label> <code id="stationMDNS">...</code></p>
+  </div>
+
+  <div class="section">
+    <form id="nameForm">
+      <input type="text" id="newName" placeholder="Enter new name" />
+      <button type="submit">Save Name</button>
+      <span style="margin-left: 1em; font-style: italic;">(requires reboot)</span>
+    </form>
+  </div>
+
+  <div class="section">
+    <button onclick="registerWithBase()">Register with Base</button>
+    <p id="status"></p>
+  </div>
+
+  <script>
+    fetch('/info').then(r => r.json()).then(d => {
+      document.getElementById("stationName").textContent = d.name;
+      document.getElementById("stationMac").textContent = d.mac;
+      document.getElementById("stationIP").textContent = d.ip;
+      document.getElementById("stationMDNS").textContent = d.mdns;
+    });
+
+    document.getElementById("nameForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const newName = document.getElementById("newName").value;
+      fetch('/set-name', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name: newName })
+      })
+      .then(res => res.json())
+      .then(d => {
+        document.getElementById("status").innerText = "Rebooting...";
+        setTimeout(() => {
+          window.location.href = d.newMdns;
+        }, 4000);
+      })
+      .catch(() => document.getElementById("status").innerText = "Error saving name");
+    });
+
+    function registerWithBase() {
+      fetch('/register-with-base', { method: 'POST' })
+        .then(r => r.text())
+        .then(t => document.getElementById("status").innerText = t)
+        .catch(() => document.getElementById("status").innerText = "Error registering");
+    }
+  </script>
+</body>
+</html>
