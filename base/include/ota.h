@@ -2,8 +2,11 @@
 #define OTA_H
 
 #include <ESPAsyncWebServer.h>
-#include <ElegantOTA_Async.h>
+#ifndef ELEGANTOTA_USE_ASYNC_WEBSERVER
+#define ELEGANTOTA_USE_ASYNC_WEBSERVER 1
+#endif
+#include <ElegantOTA.h>
 
 void setupOTA(AsyncWebServer& server);
 
-#endif // OTA_H
+#endif

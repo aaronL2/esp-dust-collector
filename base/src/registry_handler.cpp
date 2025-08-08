@@ -11,7 +11,7 @@ void setupRegistryRoutes(AsyncWebServer& server) {
       request->send(200, "application/json", "[]");
       return;
     }
-    request->send(file, "application/json");
+    request->send(SPIFFS, "/registry.json", "application/json");
   });
 
   server.on("/registry", HTTP_POST, [](AsyncWebServerRequest *request) {}, nullptr,

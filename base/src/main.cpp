@@ -4,6 +4,7 @@
 #include <SPIFFS.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+#include <WiFiManager.h>
 
 #include "base_config_ui.h"
 #include "registry_handler.h"
@@ -18,31 +19,27 @@ void setup() {
   delay(1000);
   Serial.println("\nBooting Base...");
 
-  configUI::loadConfig();
+  // Load config before WiFi (needed later for friendlyName, etc.)
+  configUI.loadConfig();
 
-  Serial.println("Connecting to Wi-Fi...");
-  WiFi.begin(configUI::getWifiSSID().c_str(), configUI::getWifiPassword().c_str());
+  // Use WiFiManager for captive portal setup
+  WiFiManager wm;
+  wm.autoConnect("DustCollector_Base");
 
-  unsigned long startAttemptTime = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
-    delay(500);
-    Serial.print(".");
+  // Optionally configure timeout for portal (e.g. 3 minutes)
+  wm.setConfigPortalTimeout(180);
+
+  // Start captive portal if no Wi-Fi or can't connect
+  if (!wm.autoConnect("DustCollector_Base")) {
+    Serial.println("❌ Failed to connect or timed out. Restarting...");
+    delay(3000);
+    ESP.restart();
   }
 
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n❌ Failed to connect to Wi-Fi.");
-    return;
-  }
-
-  Serial.println("\n✅ Wi-Fi connected.");
+  // At this point, WiFi is connected
+  Serial.println("✅ Wi-Fi connected.");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
-
-  if (MDNS.begin(configUI::getFriendlyName().c_str())) {
-    Serial.println("✅ mDNS responder started: http://" + configUI::getFriendlyName() + ".local");
-  } else {
-    Serial.println("❌ Error setting up mDNS responder!");
-  }
 
   if (!SPIFFS.begin(true)) {
     Serial.println("❌ Failed to mount SPIFFS");
@@ -62,21 +59,28 @@ void setup() {
     file = root.openNextFile();
   }
 
+  // mDNS setup using friendly name from config
+  if (MDNS.begin(configUI.getFriendlyName())) {
+    Serial.println(String("mDNS responder started: http://") + configUI.getFriendlyName() + ".local");
+  } else {
+    Serial.println("❌ Error setting up mDNS responder!");
+  }
+
   // Initialize display
   display.begin();
-  display.update(configUI::getFriendlyName(), WiFi.localIP().toString(), WiFi.macAddress());
+  display.update(configUI.getFriendlyName(), WiFi.localIP().toString(), WiFi.macAddress());
 
   // Set up UI and registry
-  configUI::begin(server);
+  configUI.begin(server);
   setupRegistryRoutes(server);
 
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
   server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request) {
     StaticJsonDocument<256> doc;
-    doc["name"] = configUI::getFriendlyName();
+    doc["name"] = configUI.getFriendlyName();
     doc["ip"] = WiFi.localIP().toString();
-    doc["mdns"] = configUI::getFriendlyName() + ".local";
+    doc["mdns"] = String(configUI.getFriendlyName()) + ".local";
     doc["mac"] = WiFi.macAddress();
 
     String json;
