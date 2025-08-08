@@ -1,94 +1,54 @@
+
 #include "base_config_ui.h"
 #include <SPIFFS.h>
-#include <FS.h>
 
-static const char* kConfigPath = "/config.json";
-
-// define globals
-BaseConfig   config;
 BaseConfigUI configUI;
 
-// ---- helpers (non-member) ----
-static bool loadConfigInternal() {
-  if (!SPIFFS.exists(kConfigPath)) return false;
-  File f = SPIFFS.open(kConfigPath, "r");
-  if (!f) return false;
-
-  ArduinoJson::JsonDocument doc;
-  auto err = deserializeJson(doc, f);
-  f.close();
-  if (err) return false;
-
-  if (doc["friendlyName"].is<const char*>())
-    strlcpy(config.friendlyName, doc["friendlyName"], sizeof(config.friendlyName));
-  if (doc["baseMac"].is<const char*>())
-    strlcpy(config.baseMac, doc["baseMac"], sizeof(config.baseMac));
-  if (doc["wifiSsid"].is<const char*>())
-    strlcpy(config.wifiSsid, doc["wifiSsid"], sizeof(config.wifiSsid));
-  if (doc["wifiPassword"].is<const char*>())
-    strlcpy(config.wifiPassword, doc["wifiPassword"], sizeof(config.wifiPassword));
-
-  return true;
+void BaseConfigUI::begin(AsyncWebServer &server) {
+  // Implement your configuration UI routes if needed
 }
 
-static bool saveConfigInternal() {
-  File f = SPIFFS.open(kConfigPath, "w");
-  if (!f) return false;
+void BaseConfigUI::loadConfig() {
+  if (!SPIFFS.begin(true)) return;
 
-  ArduinoJson::JsonDocument doc;
-  doc["friendlyName"] = config.friendlyName;
-  doc["baseMac"]      = config.baseMac;
-  doc["wifiSsid"]     = config.wifiSsid;
-  doc["wifiPassword"] = config.wifiPassword;
+  File file = SPIFFS.open("/config.json");
+  if (!file) return;
 
-  serializeJsonPretty(doc, f);
-  f.close();
-  return true;
+  DeserializationError error = deserializeJson(config, file);
+  if (error) {
+    Serial.println("Failed to load config");
+  }
+  file.close();
 }
 
-// ---- BaseConfigUI members ----
-bool BaseConfigUI::loadConfig()  { return loadConfigInternal(); }
-bool BaseConfigUI::saveConfig()  { return saveConfigInternal(); }
+void BaseConfigUI::saveConfig() {
+  File file = SPIFFS.open("/config.json", FILE_WRITE);
+  if (!file) return;
 
-// ---- routes ----
-void setupBaseConfigUI(AsyncWebServer& server) {
-  // Ensure config is loaded once at boot
-  configUI.loadConfig();
+  serializeJson(config, file);
+  file.close();
+}
 
-  server.on("/config", HTTP_GET, [](AsyncWebServerRequest* req){
-    String html;
-    html.reserve(2048);
-    html += F("<html><body><h2>Base Config</h2><form method='POST' action='/save'>");
+void BaseConfigUI::setWifiSSID(const String& ssid) {
+  config["wifi_ssid"] = ssid;
+}
 
-    html += F("<label>Friendly Name:</label><br>");
-    html += "<input name='friendlyName' value='" + String(config.friendlyName) + "'><br><br>";
+void BaseConfigUI::setWifiPassword(const String& password) {
+  config["wifi_password"] = password;
+}
 
-    html += F("<label>Base MAC:</label><br>");
-    html += "<input name='baseMac' value='" + String(config.baseMac) + "'><br><br>";
+String BaseConfigUI::getWifiSSID() {
+  return config["wifi_ssid"] | "";
+}
 
-    html += F("<label>WiFi SSID:</label><br>");
-    html += "<input name='wifiSsid' value='" + String(config.wifiSsid) + "'><br><br>";
+String BaseConfigUI::getWifiPassword() {
+  return config["wifi_password"] | "";
+}
 
-    html += F("<label>WiFi Password:</label><br>");
-    html += "<input name='wifiPassword' type='password' value='" + String(config.wifiPassword) + "'><br><br>";
+String BaseConfigUI::getFriendlyName() {
+  return config["name"] | "dustbase";
+}
 
-    html += F("<input type='submit' value='Save'></form></body></html>");
-    req->send(200, "text/html", html);
-  });
-
-  server.on("/save", HTTP_POST, [](AsyncWebServerRequest* req){
-    if (req->hasParam("friendlyName", true))
-      strlcpy(config.friendlyName, req->getParam("friendlyName", true)->value().c_str(), sizeof(config.friendlyName));
-    if (req->hasParam("baseMac", true))
-      strlcpy(config.baseMac, req->getParam("baseMac", true)->value().c_str(), sizeof(config.baseMac));
-    if (req->hasParam("wifiSsid", true))
-      strlcpy(config.wifiSsid, req->getParam("wifiSsid", true)->value().c_str(), sizeof(config.wifiSsid));
-    if (req->hasParam("wifiPassword", true))
-      strlcpy(config.wifiPassword, req->getParam("wifiPassword", true)->value().c_str(), sizeof(config.wifiPassword));
-
-    configUI.saveConfig();
-    req->send(200, "text/plain", "Saved. Rebooting...");
-    delay(500);
-    ESP.restart();
-  });
+String BaseConfigUI::getBaseMac() {
+  return config["base_mac"] | "";
 }

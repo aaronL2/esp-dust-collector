@@ -1,10 +1,11 @@
+
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <SPIFFS.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
-#include <WiFiManager.h>
+#include <DNSServer.h>
 
 #include "base_config_ui.h"
 #include "registry_handler.h"
@@ -12,32 +13,81 @@
 #include "ota.h"
 
 AsyncWebServer server(80);
+DNSServer dnsServer;
 Display display;
+
+void startConfigPortal() {
+  WiFi.mode(WIFI_AP);
+  const char* ap_ssid = "DustCollector_Base";
+  WiFi.softAP(ap_ssid);
+  IPAddress ip = WiFi.softAPIP();
+  Serial.printf("📶 AP started: %s  IP: %s\n", ap_ssid, ip.toString().c_str());
+
+  if (!SPIFFS.begin(true)) {
+    Serial.println("❌ Failed to mount SPIFFS (portal)");
+  }
+
+  dnsServer.start(53, "*", ip);
+
+  const char* formHtml =
+    "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
+    "<title>WiFi Setup</title></head><body>"
+    "<h2>Dust Collector Wi‑Fi Setup</h2>"
+    "<form method='POST' action='/save'>"
+    "SSID: <input name='ssid'><br>"
+    "Password: <input name='pass' type='password'><br><br>"
+    "<button type='submit'>Save & Reboot</button>"
+    "</form></body></html>";
+
+  server.reset();
+  server.onNotFound([formHtml](AsyncWebServerRequest* req) {
+    req->send(200, "text/html", formHtml);
+  });
+
+  server.on("/save", HTTP_POST, [](AsyncWebServerRequest* req) {
+    String ssid, pass;
+    if (req->hasParam("ssid", true)) ssid = req->getParam("ssid", true)->value();
+    if (req->hasParam("pass", true)) pass = req->getParam("pass", true)->value();
+    if (ssid.length() == 0) {
+      req->send(400, "text/plain", "SSID required");
+      return;
+    }
+    configUI.setWifiSSID(ssid);
+    configUI.setWifiPassword(pass);
+    configUI.saveConfig();
+    req->send(200, "text/plain", "Saved. Rebooting...");
+    delay(750);
+    ESP.restart();
+  });
+
+  server.begin();
+  Serial.println("✅ Captive portal started (visit any URL)");
+}
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
   Serial.println("\nBooting Base...");
 
-  // Load config before WiFi (needed later for friendlyName, etc.)
   configUI.loadConfig();
 
-  // Use WiFiManager for captive portal setup
-  WiFiManager wm;
-  wm.autoConnect("DustCollector_Base");
+  Serial.println("Connecting to Wi-Fi...");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(configUI.getWifiSSID(), configUI.getWifiPassword());
 
-  // Optionally configure timeout for portal (e.g. 3 minutes)
-  wm.setConfigPortalTimeout(180);
-
-  // Start captive portal if no Wi-Fi or can't connect
-  if (!wm.autoConnect("DustCollector_Base")) {
-    Serial.println("❌ Failed to connect or timed out. Restarting...");
-    delay(3000);
-    ESP.restart();
+  unsigned long startAttemptTime = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
+    delay(500);
+    Serial.print(".");
   }
 
-  // At this point, WiFi is connected
-  Serial.println("✅ Wi-Fi connected.");
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("\n❌ Failed to connect to Wi-Fi. Starting config portal...");
+    startConfigPortal();
+    return;
+  }
+
+  Serial.println("\n✅ Wi-Fi connected.");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
 
@@ -46,31 +96,15 @@ void setup() {
     return;
   }
 
-  // Dump SPIFFS contents
-  Serial.println("📁 Listing and dumping SPIFFS files:");
-  File root = SPIFFS.open("/");
-  File file = root.openNextFile();
-  while (file) {
-    Serial.printf(" - %s (%d bytes)\n", file.name(), file.size());
-    while (file.available()) {
-      Serial.write(file.read());
-    }
-    Serial.println("\n---");
-    file = root.openNextFile();
-  }
-
-  // mDNS setup using friendly name from config
   if (MDNS.begin(configUI.getFriendlyName())) {
-    Serial.println(String("mDNS responder started: http://") + configUI.getFriendlyName() + ".local");
+    Serial.println(String("http://") + configUI.getFriendlyName() + ".local");
   } else {
     Serial.println("❌ Error setting up mDNS responder!");
   }
 
-  // Initialize display
   display.begin();
   display.update(configUI.getFriendlyName(), WiFi.localIP().toString(), WiFi.macAddress());
 
-  // Set up UI and registry
   configUI.begin(server);
   setupRegistryRoutes(server);
 
@@ -82,7 +116,6 @@ void setup() {
     doc["ip"] = WiFi.localIP().toString();
     doc["mdns"] = String(configUI.getFriendlyName()) + ".local";
     doc["mac"] = WiFi.macAddress();
-
     String json;
     serializeJson(doc, json);
     request->send(200, "application/json", json);
@@ -94,5 +127,6 @@ void setup() {
 }
 
 void loop() {
+  dnsServer.processNextRequest();
   display.loop();
 }
