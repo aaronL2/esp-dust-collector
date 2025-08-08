@@ -1,8 +1,7 @@
-#include "ota.h"
-#define ELEGANTOTA_USE_ASYNC_WEBSERVER 1
 #include <ElegantOTA.h>
+#include "ota.h"
 
 void setupOTA(AsyncWebServer& server) {
-    ElegantOTA.begin(&server);  // ✅ now uses our wrapper class
-    Serial.println("ElegantOTA ready at /update");
+    ElegantOTA.begin(&server);  // Enable OTA on /update
+    Serial.println("ElegantOTA OTA ready at /update");
 }

@@ -6,6 +6,7 @@
 #include "config_ui.h"
 #include <HTTPClient.h>
 #include "esp_timer.h"
+#include "ota.h"
 
 AsyncWebServer server(80);
 String friendlyName = "station";
@@ -122,7 +123,8 @@ void configUI_setup() {
     http.end();
     request->send(200, "text/plain", response);
   });
-
+  
+  setupOTA(server);
   server.begin();
 }
 
