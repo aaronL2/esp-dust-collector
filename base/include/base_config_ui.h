@@ -1,12 +1,16 @@
-#pragma once
+#ifndef BASE_CONFIG_UI_H
+#define BASE_CONFIG_UI_H
+
 #include <Arduino.h>
 #include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>
 
-namespace configUI {
-  void loadConfig();
-  void begin(AsyncWebServer& server);
+struct BaseConfig {
+  char friendlyName[32];
+  char baseMac[18];
+};
 
-  String getFriendlyName();
-  String getWifiSSID();
-  String getWifiPassword();
-}
+extern BaseConfig config;
+void setupBaseConfigUI(AsyncWebServer& server);
+
+#endif // BASE_CONFIG_UI_H

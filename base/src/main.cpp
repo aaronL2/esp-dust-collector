@@ -8,6 +8,7 @@
 #include "base_config_ui.h"
 #include "registry_handler.h"
 #include "display.h"
+#include "ota.h"
 
 AsyncWebServer server(80);
 Display display;
@@ -83,6 +84,7 @@ void setup() {
     request->send(200, "application/json", json);
   });
 
+  setupOTA(server);
   server.begin();
   Serial.println("✅ HTTP server started");
 }
