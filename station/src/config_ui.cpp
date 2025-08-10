@@ -1,117 +1,153 @@
+// src/config_ui.cpp  (STATION)
+
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include <FS.h>
 #include <SPIFFS.h>
 #include <ESPmDNS.h>
-#include "config_ui.h"
+#include <WiFi.h>
 #include <HTTPClient.h>
 #include "esp_timer.h"
+
+#include "config_ui.h"
 #include "ota.h"
+#include "version.h"
 
+// ---------------- Station state ----------------
 AsyncWebServer server(80);
-String friendlyName = "station";
-String baseMac = "";
 
-void loadConfig() {
-  if (SPIFFS.begin(true)) {
-    File configFile = SPIFFS.open("/config.json");
-    if (configFile) {
-      ArduinoJson::StaticJsonDocument<256> doc;
-      if (deserializeJson(doc, configFile) == DeserializationError::Ok) {
-        if (doc.containsKey("friendlyName")) friendlyName = doc["friendlyName"].as<String>();
-        if (doc.containsKey("baseMac")) baseMac = doc["baseMac"].as<String>();
-      }
-      configFile.close();
-    }
-  }
-}
+static String friendlyName = "station";
+static String baseMac = "";   // reserved for future use if you pair via MAC
 
-void saveConfig() {
-  File configFile = SPIFFS.open("/config.json", FILE_WRITE);
-  if (configFile) {
-    ArduinoJson::StaticJsonDocument<256> doc;
-    doc["friendlyName"] = friendlyName;
-    doc["baseMac"] = baseMac;
-    serializeJson(doc, configFile);
-    configFile.close();
-  }
-}
+// Forward decls
+static String getMdnsName();
+static void   loadConfig();
+static void   saveConfig();
 
+// Public getters if other modules include config_ui.h
 String getFriendlyName() { return friendlyName; }
-String getBaseMac() { return baseMac; }
-String getMdnsName();  // Forward declaration
+String getBaseMac()      { return baseMac; }
 
+// ---------------- Persistence ----------------
+static void loadConfig() {
+  if (!SPIFFS.begin(true)) {
+    Serial.println("SPIFFS mount failed");
+    return;
+  }
+  File f = SPIFFS.open("/config.json", "r");
+  if (!f) return;
+
+  StaticJsonDocument<256> doc;
+  if (deserializeJson(doc, f) == DeserializationError::Ok) {
+    if (doc.containsKey("friendlyName")) friendlyName = doc["friendlyName"].as<String>();
+    if (doc.containsKey("baseMac"))      baseMac      = doc["baseMac"].as<String>();
+  }
+  f.close();
+}
+
+static void saveConfig() {
+  File f = SPIFFS.open("/config.json", FILE_WRITE);
+  if (!f) return;
+  StaticJsonDocument<256> doc;
+  doc["friendlyName"] = friendlyName;
+  doc["baseMac"]      = baseMac;
+  serializeJson(doc, f);
+  f.close();
+}
+
+// ---------------- Web UI / API ----------------
 void configUI_setup() {
   loadConfig();
+
+  // mDNS: http://<friendlyNameWithoutSpaces>.local
   if (MDNS.begin(getMdnsName().c_str())) {
-    Serial.printf("mDNS started: http://%s.local", getMdnsName().c_str());
+    Serial.printf("mDNS: http://%s.local\n", getMdnsName().c_str());
   } else {
-    Serial.println("Error starting mDNS");
+    Serial.println("mDNS start failed");
   }
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/index.html", "text/html");
+  // Serve UI
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest* req) {
+    req->send(SPIFFS, "/index.html", "text/html");
   });
 
-  server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request) {
-    ArduinoJson::StaticJsonDocument<256> doc;
-    doc["name"] = getFriendlyName();
-    doc["mac"] = WiFi.macAddress();
-    doc["ip"] = WiFi.localIP().toString();
+  // Station status (preferred for UI because it includes FW)
+  // { name, mac, ip, mdns, fw }
+  server.on("/status", HTTP_GET, [](AsyncWebServerRequest* req) {
+    StaticJsonDocument<256> doc;
+    doc["name"] = friendlyName;
+    doc["mac"]  = WiFi.macAddress();
+    doc["ip"]   = WiFi.localIP().toString();
     doc["mdns"] = "http://" + getMdnsName() + ".local";
-    String json;
-    serializeJson(doc, json);
-    request->send(200, "application/json", json);
+    doc["fw"]   = FW_VERSION;
+    String out; serializeJson(doc, out);
+    req->send(200, "application/json", out);
   });
 
-  server.on("/set-name", HTTP_POST, [](AsyncWebServerRequest *request){},
-    NULL,
-    [](AsyncWebServerRequest *request, uint8_t* data, size_t len, size_t, size_t) {
-      ArduinoJson::StaticJsonDocument<128> doc;
-      DeserializationError err = deserializeJson(doc, data);
-      if (err || !doc.containsKey("name")) {
-        request->send(400, "text/plain", "Invalid name");
+  // (Legacy) /info kept for backward compatibility — mirrors /status minus FW
+  server.on("/info", HTTP_GET, [](AsyncWebServerRequest* req) {
+    StaticJsonDocument<256> doc;
+    doc["name"] = friendlyName;
+    doc["mac"]  = WiFi.macAddress();
+    doc["ip"]   = WiFi.localIP().toString();
+    doc["mdns"] = "http://" + getMdnsName() + ".local";
+    String out; serializeJson(doc, out);
+    req->send(200, "application/json", out);
+  });
+
+  // Rename station (JSON: { "name": "<new>" }) -> responds with { newMdns }
+  // Then triggers a clean reboot shortly after responding.
+  server.on("/set-name", HTTP_POST,
+    [](AsyncWebServerRequest* /*req*/){},
+    nullptr,
+    [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+      StaticJsonDocument<128> body;
+      DeserializationError err = deserializeJson(body, data, len);
+      if (err || !body.containsKey("name")) {
+        req->send(400, "text/plain", "Invalid name");
         return;
       }
-      friendlyName = doc["name"].as<String>();
+      friendlyName = body["name"].as<String>();
       saveConfig();
 
-      String newMdns = "http://" + getMdnsName() + ".local";
-      ArduinoJson::StaticJsonDocument<128> response;
-      response["newMdns"] = newMdns;
-      String json;
-      serializeJson(response, json);
-      request->send(200, "application/json", json);
+      StaticJsonDocument<128> res;
+      res["newMdns"] = "http://" + getMdnsName() + ".local";
+      String out; serializeJson(res, out);
+      req->send(200, "application/json", out);
 
-      // Non-blocking reboot using esp_timer (500ms)
+      // Non-blocking reboot ~500ms later
       esp_timer_handle_t reboot_timer;
-      const esp_timer_create_args_t reboot_args = {
-        .callback = [](void*) { ESP.restart(); },
-        .name = "rebootTimer"
-      };
-      esp_timer_create(&reboot_args, &reboot_timer);
-      esp_timer_start_once(reboot_timer, 500000);  // 500ms in microseconds
-    });
+      esp_timer_create_args_t args = {};
+      args.callback = [](void*) { ESP.restart(); };
+      args.name = "rebootTimer";
+      if (esp_timer_create(&args, &reboot_timer) == ESP_OK) {
+        esp_timer_start_once(reboot_timer, 500000); // microseconds
+      }
+    }
+  );
 
-  server.on("/register-with-base", HTTP_POST, [](AsyncWebServerRequest *request) {
-    String targetURL = "http://base.local/register";
-    ArduinoJson::StaticJsonDocument<256> doc;
-    doc["name"] = getFriendlyName();
-    doc["mac"] = WiFi.macAddress();
-    doc["version"] = "1.0.0";
-    doc["timestamp"] = String(millis() / 1000);
-    serializeJson(doc, Serial); Serial.println();
+  // Register with Base over HTTP (Station -> Base)
+  // POST to http://base.local/register  body: { name, mac, ip, mdns, fw }
+  server.on("/register-with-base", HTTP_POST, [](AsyncWebServerRequest* req) {
+    const String targetURL = "http://base.local/register";
+
+    StaticJsonDocument<256> doc;
+    doc["name"] = friendlyName;
+    doc["mac"]  = WiFi.macAddress();
+    doc["ip"]   = WiFi.localIP().toString();
+    doc["mdns"] = getMdnsName() + ".local";
+    doc["fw"]   = FW_VERSION;
+
+    String json; serializeJson(doc, json);
+    Serial.printf("Registering with Base: %s\n", json.c_str());
 
     WiFiClient client;
     HTTPClient http;
     http.begin(client, targetURL);
     http.addHeader("Content-Type", "application/json");
+    const int httpCode = http.POST(json);
 
-    String json;
-    serializeJson(doc, json);
-    int httpCode = http.POST(json);
     String response = "Registration ";
-
     if (httpCode > 0) {
       response += "succeeded: ";
       response += http.getString();
@@ -119,16 +155,19 @@ void configUI_setup() {
       response += "failed: ";
       response += http.errorToString(httpCode);
     }
-
     http.end();
-    request->send(200, "text/plain", response);
+
+    req->send(200, "text/plain", response);
   });
-  
+
+  // OTA (ElegantOTA or your wrapper)
   setupOTA(server);
+
   server.begin();
 }
 
-String getMdnsName() {
+// mDNS name helper: strip spaces
+static String getMdnsName() {
   String clean = friendlyName;
   clean.replace(" ", "");
   return clean;

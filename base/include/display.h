@@ -10,6 +10,8 @@ private:
   void showDeviceInfo();
   void showQRCode();
   String name, ip, mac;
+/* this is for QR code if we switch to SPI OLED
   unsigned long lastSwitchTime = 0;
   bool showingInfo = true;
+  bool needsRedraw = true;*/
 };

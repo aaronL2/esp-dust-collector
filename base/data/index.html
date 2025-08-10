@@ -7,6 +7,7 @@
     body { font-family: Arial, sans-serif; padding: 20px; }
     h1, h2 { color: #333; }
     li { margin-bottom: 4px; }
+    .badge { padding: 2px 6px; border-radius: 4px; background: #f0f0f0; }
   </style>
 </head>
 <body>
@@ -16,19 +17,39 @@
     <li><strong>IP Address:</strong> <span id="ip"></span></li>
     <li><strong>mDNS:</strong> <span id="mdns"></span></li>
     <li><strong>MAC Address:</strong> <span id="mac"></span></li>
+    <li><strong>Firmware:</strong> <span id="fw" class="badge"></span></li>
   </ul>
 
   <h2>Registered Stations</h2>
   <ul id="stations"></ul>
 
   <script>
-    fetch("/info")
+    const name = document.getElementById("name");
+    const ip = document.getElementById("ip");
+    const mdns = document.getElementById("mdns");
+    const mac = document.getElementById("mac");
+    const fw = document.getElementById("fw");
+
+    fetch("/status")
       .then(res => res.json())
       .then(data => {
-        document.getElementById("name").textContent = data.name;
-        document.getElementById("ip").textContent = data.ip;
-        document.getElementById("mdns").textContent = data.mdns;
-        document.getElementById("mac").textContent = data.mac;
+        name.textContent = data.name;
+        ip.textContent = data.ip;
+        mdns.textContent = data.mdns;
+        mac.textContent = data.mac;
+        fw.textContent = data.fw;
+      })
+      .catch(() => {
+        // Fallback to /info if /status isn't available yet
+        fetch("/info")
+          .then(res => res.json())
+          .then(data => {
+            name.textContent = data.name;
+            ip.textContent = data.ip;
+            mdns.textContent = data.mdns;
+            mac.textContent = data.mac;
+            fw.textContent = "(unknown)";
+          });
       });
 
     fetch("/registry.json")
@@ -37,7 +58,8 @@
         const ul = document.getElementById("stations");
         reg.forEach(entry => {
           const li = document.createElement("li");
-          li.textContent = `${entry.name} (${entry.mac})`;
+          const v = entry.fw ? ` – FW ${entry.fw}` : "";
+          li.textContent = `${entry.name} (${entry.mac})${v}`;
           ul.appendChild(li);
         });
       });

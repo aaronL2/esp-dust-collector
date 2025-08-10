@@ -20,6 +20,7 @@
     <p><label>MAC:</label> <code id="stationMac">...</code></p>
     <p><label>IP:</label> <code id="stationIP">...</code></p>
     <p><label>mDNS:</label> <code id="stationMDNS">...</code></p>
+    <p><label>FW:</label> <code id="stationFW">...</code></p>
   </div>
 
   <div class="section">
@@ -36,19 +37,27 @@
   </div>
 
   <script>
-    fetch('/info').then(r => r.json()).then(d => {
-      document.getElementById("stationName").textContent = d.name;
-      document.getElementById("stationMac").textContent = d.mac;
-      document.getElementById("stationIP").textContent = d.ip;
-      document.getElementById("stationMDNS").textContent = d.mdns;
-    });
+    function loadStatus() {
+      fetch('/status', { cache: 'no-store' })
+        .then(r => r.json())
+        .then(d => {
+          document.getElementById("stationName").textContent = d.name || '';
+          document.getElementById("stationMac").textContent = d.mac || '';
+          document.getElementById("stationIP").textContent = d.ip || '';
+          document.getElementById("stationMDNS").textContent = d.mdns || '';
+          document.getElementById("stationFW").textContent = d.fw || '';
+        })
+        .catch(() => {});
+    }
+    loadStatus();
 
     document.getElementById("nameForm").addEventListener("submit", function(e) {
       e.preventDefault();
-      const newName = document.getElementById("newName").value;
+      const newName = document.getElementById("newName").value.trim();
+      if (!newName) return;
       fetch('/set-name', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName })
       })
       .then(res => res.json())

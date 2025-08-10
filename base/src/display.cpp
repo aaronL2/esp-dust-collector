@@ -1,12 +1,15 @@
 #include "display.h"
 #include <U8g2lib.h>
 #include <qrcode.h>
+#include <Wire.h>
 
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0); // adjust if needed
 
 void Display::begin() {
   u8g2.begin();
-  lastSwitchTime = millis();
+//  Wire.begin();            // Optional if already initialized
+//  Wire.setClock(400000);   // Boost I2C speed (try 700kHz or fallback to 400kHz)
+//  lastSwitchTime = millis();
 }
 
 void Display::update(const String& n, const String& i, const String& m) {
@@ -16,14 +19,25 @@ void Display::update(const String& n, const String& i, const String& m) {
 }
 
 void Display::loop() {
+  showDeviceInfo();  // Always show static device info
+}
+/* QRCode option for SPI OLED
+void Display::loop() {
   if (millis() - lastSwitchTime > 5000) {
     showingInfo = !showingInfo;
     lastSwitchTime = millis();
-    Serial.println(showingInfo ? "Showing info screen" : "Showing QR code");
+    needsRedraw = true;
+
+    Serial.println(showingInfo ? "Switching to info screen" : "Switching to QR code");
   }
-  if (showingInfo) showDeviceInfo();
-  else showQRCode();
+
+  if (needsRedraw) {
+    if (showingInfo) showDeviceInfo();
+    else showQRCode();
+    needsRedraw = false;
+  }
 }
+*/
 
 void Display::showDeviceInfo() {
   u8g2.clearBuffer();

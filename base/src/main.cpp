@@ -1,4 +1,3 @@
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
@@ -11,6 +10,11 @@
 #include "registry_handler.h"
 #include "display.h"
 #include "ota.h"
+
+// Fallback so builds still succeed even if the pre-build script didn't run
+#ifndef FW_VERSION
+#define FW_VERSION "0.00000000.000000"
+#endif
 
 AsyncWebServer server(80);
 DNSServer dnsServer;
@@ -110,12 +114,28 @@ void setup() {
 
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
+  // Legacy info endpoint (kept for compatibility)
   server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request) {
     StaticJsonDocument<256> doc;
     doc["name"] = configUI.getFriendlyName();
     doc["ip"] = WiFi.localIP().toString();
     doc["mdns"] = String(configUI.getFriendlyName()) + ".local";
     doc["mac"] = WiFi.macAddress();
+    String json;
+    serializeJson(doc, json);
+    request->send(200, "application/json", json);
+  });
+
+  // Unified status endpoint to match Station schema
+  server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+    StaticJsonDocument<256> doc;
+    doc["name"]   = configUI.getFriendlyName();
+    doc["fw"]     = FW_VERSION;
+    doc["ip"]     = WiFi.localIP().toString();
+    doc["mdns"]   = String(configUI.getFriendlyName()) + ".local";
+    doc["mac"]    = WiFi.macAddress();
+    doc["role"]   = "base";
+    doc["uptime"] = (uint32_t)(millis() / 1000);
     String json;
     serializeJson(doc, json);
     request->send(200, "application/json", json);
@@ -129,4 +149,5 @@ void setup() {
 void loop() {
   dnsServer.processNextRequest();
   display.loop();
+  ElegantOTA.loop();   // <- required so OTA can trigger reboot
 }
