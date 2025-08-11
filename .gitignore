@@ -1,7 +1,12 @@
-**/.pio/
-**/.vscode/
-**/.DS_Store
+.pio/
+.vscode/
+.DS_Store
+*.pyc
+__pycache__/
+.idea/
 *.bin
 *.elf
 *.map
-*.pyc
+.clangd/
+compile_commands.json
+firmare_backup/
