@@ -7,8 +7,10 @@
 #include <ESPmDNS.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include "esp_timer.h"
 
+#include <Arduino.h>
+
+#include "esp_timer.h"
 #include "config_ui.h"
 #include "ota.h"
 #include "version.h"
@@ -19,15 +21,6 @@ AsyncWebServer server(80);
 static String friendlyName = "station";
 static String baseMac = "";   // reserved for future use if you pair via MAC
 
-// Forward decls
-static String getMdnsName();
-static void   loadConfig();
-static void   saveConfig();
-
-// Public getters if other modules include config_ui.h
-String getFriendlyName() { return friendlyName; }
-String getBaseMac()      { return baseMac; }
-
 // ---------------- Persistence ----------------
 static void loadConfig() {
   if (!SPIFFS.begin(true)) {
@@ -37,7 +30,7 @@ static void loadConfig() {
   File f = SPIFFS.open("/config.json", "r");
   if (!f) return;
 
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   if (deserializeJson(doc, f) == DeserializationError::Ok) {
     if (doc.containsKey("friendlyName")) friendlyName = doc["friendlyName"].as<String>();
     if (doc.containsKey("baseMac"))      baseMac      = doc["baseMac"].as<String>();
@@ -48,7 +41,7 @@ static void loadConfig() {
 static void saveConfig() {
   File f = SPIFFS.open("/config.json", FILE_WRITE);
   if (!f) return;
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   doc["friendlyName"] = friendlyName;
   doc["baseMac"]      = baseMac;
   serializeJson(doc, f);
@@ -74,23 +67,23 @@ void configUI_setup() {
   // Station status (preferred for UI because it includes FW)
   // { name, mac, ip, mdns, fw }
   server.on("/status", HTTP_GET, [](AsyncWebServerRequest* req) {
-    StaticJsonDocument<256> doc;
+    JsonDocument doc;
     doc["name"] = friendlyName;
     doc["mac"]  = WiFi.macAddress();
     doc["ip"]   = WiFi.localIP().toString();
-    doc["mdns"] = "http://" + getMdnsName() + ".local";
-    doc["fw"]   = FW_VERSION;
+    doc["mdns"] = getMdnsName() + ".local";
+    doc["fw"]   = Version::firmware();
     String out; serializeJson(doc, out);
     req->send(200, "application/json", out);
   });
 
   // (Legacy) /info kept for backward compatibility — mirrors /status minus FW
   server.on("/info", HTTP_GET, [](AsyncWebServerRequest* req) {
-    StaticJsonDocument<256> doc;
+    JsonDocument doc;
     doc["name"] = friendlyName;
     doc["mac"]  = WiFi.macAddress();
     doc["ip"]   = WiFi.localIP().toString();
-    doc["mdns"] = "http://" + getMdnsName() + ".local";
+    doc["mdns"] = getMdnsName() + ".local";
     String out; serializeJson(doc, out);
     req->send(200, "application/json", out);
   });
@@ -101,7 +94,7 @@ void configUI_setup() {
     [](AsyncWebServerRequest* /*req*/){},
     nullptr,
     [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-      StaticJsonDocument<128> body;
+      JsonDocument body;
       DeserializationError err = deserializeJson(body, data, len);
       if (err || !body.containsKey("name")) {
         req->send(400, "text/plain", "Invalid name");
@@ -110,7 +103,7 @@ void configUI_setup() {
       friendlyName = body["name"].as<String>();
       saveConfig();
 
-      StaticJsonDocument<128> res;
+      JsonDocument res;
       res["newMdns"] = "http://" + getMdnsName() + ".local";
       String out; serializeJson(res, out);
       req->send(200, "application/json", out);
@@ -131,12 +124,12 @@ void configUI_setup() {
   server.on("/register-with-base", HTTP_POST, [](AsyncWebServerRequest* req) {
     const String targetURL = "http://base.local/register";
 
-    StaticJsonDocument<256> doc;
+    JsonDocument doc;
     doc["name"] = friendlyName;
     doc["mac"]  = WiFi.macAddress();
     doc["ip"]   = WiFi.localIP().toString();
     doc["mdns"] = getMdnsName() + ".local";
-    doc["fw"]   = FW_VERSION;
+    doc["fw"]   = Version::firmware();
 
     String json; serializeJson(doc, json);
     Serial.printf("Registering with Base: %s\n", json.c_str());
@@ -167,8 +160,11 @@ void configUI_setup() {
 }
 
 // mDNS name helper: strip spaces
-static String getMdnsName() {
+String getMdnsName() {
   String clean = friendlyName;
   clean.replace(" ", "");
   return clean;
 }
+
+String getFriendlyName() { return friendlyName; }
+String getBaseMac()      { return baseMac; }

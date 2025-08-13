@@ -1,17 +1,10 @@
 #pragma once
-#include <Arduino.h>
+#include <U8g2lib.h>
 
 class Display {
 public:
   void begin();
-  void update(const String& name, const String& ip, const String& mac);
-  void loop(); // call this in main loop
-private:
-  void showDeviceInfo();
-  void showQRCode();
-  String name, ip, mac;
-/* this is for QR code if we switch to SPI OLED
-  unsigned long lastSwitchTime = 0;
-  bool showingInfo = true;
-  bool needsRedraw = true;*/
+  U8G2& getU8g2();
 };
+
+extern Display display;

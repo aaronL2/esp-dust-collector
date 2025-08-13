@@ -5,8 +5,11 @@
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include <DNSServer.h>
+#include <U8g2lib.h>
 
-#include "base_config_ui.h"
+#include "display_status.h"
+#include "version.h"
+#include "config_ui.h"
 #include "registry_handler.h"
 #include "display.h"
 #include "ota.h"
@@ -18,7 +21,20 @@
 
 AsyncWebServer server(80);
 DNSServer dnsServer;
-Display display;
+
+static DisplayStatus status(display.getU8g2());
+
+static unsigned long lastOledUpdate = 0;
+static const unsigned long OLED_UPDATE_MS = 10000;
+
+static void updateOled() {
+  const String name = getFriendlyName();
+  const String mdns = String(getMdnsName()) + ".local";
+  const String ip   = WiFi.isConnected() ? WiFi.localIP().toString() : "-";
+  const String mac  = WiFi.macAddress();
+  const String fw   = Version::firmware(); // or String(FW_VERSION)
+  status.show(name, mdns, ip, mac, fw);
+}
 
 void startConfigPortal() {
   WiFi.mode(WIFI_AP);
@@ -26,6 +42,12 @@ void startConfigPortal() {
   WiFi.softAP(ap_ssid);
   IPAddress ip = WiFi.softAPIP();
   Serial.printf("📶 AP started: %s  IP: %s\n", ap_ssid, ip.toString().c_str());
+
+  // ✅ OLED init in AP mode
+  display.begin();
+  status.begin();
+  status.show("AP: DustCollector_Base", "-", WiFi.softAPIP().toString(),
+  WiFi.softAPmacAddress(), Version::firmware());
 
   if (!SPIFFS.begin(true)) {
     Serial.println("❌ Failed to mount SPIFFS (portal)");
@@ -100,14 +122,13 @@ void setup() {
     return;
   }
 
-  if (MDNS.begin(configUI.getFriendlyName())) {
-    Serial.println(String("http://") + configUI.getFriendlyName() + ".local");
-  } else {
-    Serial.println("❌ Error setting up mDNS responder!");
+  if (MDNS.begin(getMdnsName().c_str())) {
+    Serial.println(String("http://") + getMdnsName() + ".local");
   }
-
+  
   display.begin();
-  display.update(configUI.getFriendlyName(), WiFi.localIP().toString(), WiFi.macAddress());
+  status.begin();
+  updateOled();
 
   configUI.begin(server);
   setupRegistryRoutes(server);
@@ -119,7 +140,7 @@ void setup() {
     StaticJsonDocument<256> doc;
     doc["name"] = configUI.getFriendlyName();
     doc["ip"] = WiFi.localIP().toString();
-    doc["mdns"] = String(configUI.getFriendlyName()) + ".local";
+    doc["mdns"] = String(getMdnsName()) + ".local";
     doc["mac"] = WiFi.macAddress();
     String json;
     serializeJson(doc, json);
@@ -132,7 +153,7 @@ void setup() {
     doc["name"]   = configUI.getFriendlyName();
     doc["fw"]     = FW_VERSION;
     doc["ip"]     = WiFi.localIP().toString();
-    doc["mdns"]   = String(configUI.getFriendlyName()) + ".local";
+    doc["mdns"] = String(getMdnsName()) + ".local";
     doc["mac"]    = WiFi.macAddress();
     doc["role"]   = "base";
     doc["uptime"] = (uint32_t)(millis() / 1000);
@@ -148,6 +169,11 @@ void setup() {
 
 void loop() {
   dnsServer.processNextRequest();
-  display.loop();
   ElegantOTA.loop();   // <- required so OTA can trigger reboot
+
+  if (millis() - lastOledUpdate >= OLED_UPDATE_MS) {
+  lastOledUpdate = millis();
+  updateOled();
+}
+
 }

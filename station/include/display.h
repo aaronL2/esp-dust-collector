@@ -1,11 +1,10 @@
 #pragma once
-#include <Arduino.h>
+#include <U8g2lib.h>
 
 class Display {
 public:
   void begin();
-  void showDeviceInfo(const String& name);
-  void showQRCode(const String& url);
+  U8G2& getU8g2();
 };
 
 extern Display display;
