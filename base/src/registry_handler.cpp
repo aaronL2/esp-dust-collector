@@ -15,60 +15,60 @@ void setupRegistryRoutes(AsyncWebServer& server) {
   });
 
   server.on("/registry", HTTP_POST, [](AsyncWebServerRequest *request) {}, nullptr,
-    [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
-      StaticJsonDocument<256> incoming;
-      DeserializationError err = deserializeJson(incoming, data);
-      if (err) {
-        StaticJsonDocument<64> doc;
-        doc["error"] = "Invalid JSON";
-        String out;
-        serializeJson(doc, out);
-        request->send(400, "application/json", out);
-        return;
-      }
-
-      String newName = incoming["name"] | "";
-      String newMac = incoming["mac"] | "";
-      if (newName == "" || newMac == "") {
-        StaticJsonDocument<64> doc;
-        doc["error"] = "Missing name or mac";
-        String out;
-        serializeJson(doc, out);
-        request->send(400, "application/json", out);
-        return;
-      }
-
-      DynamicJsonDocument doc(1024);
-      File file = SPIFFS.open("/registry.json", "r");
-      if (file) {
-        deserializeJson(doc, file);
-        file.close();
-      }
-
-      bool found = false;
-      for (JsonObject obj : doc.as<JsonArray>()) {
-        if (obj["mac"] == newMac) {
-          obj["name"] = newName;
-          found = true;
-          break;
-        }
-      }
-
-      if (!found) {
-        JsonObject newObj = doc.createNestedObject();
-        newObj["name"] = newName;
-        newObj["mac"] = newMac;
-      }
-
-      file = SPIFFS.open("/registry.json", "w");
-      serializeJson(doc, file);
-      file.close();
-
-      StaticJsonDocument<64> resp;
-      resp["success"] = true;
-      String out;
-      serializeJson(resp, out);
-      request->send(200, "application/json", out);
+  [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
+    JsonDocument incoming;
+    DeserializationError err = deserializeJson(incoming, data, len);
+    if (err) {
+      JsonDocument doc;
+      doc["error"] = "Invalid JSON";
+      String out; serializeJson(doc, out);
+      request->send(400, "application/json", out);
+      return;
     }
-  );
+
+    const String newName = incoming["name"] | "";
+    const String newMac  = incoming["mac"]  | "";
+    if (newName.isEmpty() || newMac.isEmpty()) {
+      JsonDocument doc;
+      doc["error"] = "Missing name or mac";
+      String out; serializeJson(doc, out);
+      request->send(400, "application/json", out);
+      return;
+    }
+
+    JsonDocument doc;      // load registry (array of entries)
+    File file = SPIFFS.open("/registry.json", "r");
+    if (file) {
+      deserializeJson(doc, file);
+      file.close();
+    }
+
+    // Ensure root is an array (AJv7: use to<JsonArray>() to coerce)
+    JsonArray arr = doc.to<JsonArray>();
+
+    bool found = false;
+    for (JsonObject obj : arr) {
+      if (newMac == obj["mac"].as<String>()) {
+        obj["name"] = newName;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      JsonObject entry = arr.add<JsonObject>();
+      entry["name"] = newName;     // <- fixed typo: was newObj
+      entry["mac"]  = newMac;
+    }
+
+    file = SPIFFS.open("/registry.json", "w");
+    serializeJson(doc, file);
+    file.close();
+
+    JsonDocument resp;
+    resp["success"] = true;
+    String out; serializeJson(resp, out);
+    request->send(200, "application/json", out);
+  }
+);
 }

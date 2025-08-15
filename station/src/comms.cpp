@@ -43,7 +43,9 @@ void CommsClass::onReceive(const uint8_t* mac, const uint8_t* data, int len) {
 }
 
 void registerWithBaseNow() {
-  ArduinoJson::StaticJsonDocument<256> doc;
+  //ArduinoJson::StaticJsonDocument<256> doc;
+  JsonDocument doc;
+  //doc.reserve(256);
   doc["type"] = "register";
   doc["name"] = getFriendlyName();
   doc["mac"] = WiFi.macAddress();

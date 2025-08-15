@@ -8,7 +8,9 @@
 extern void updateStationRegistry(const String& mac, const String& name, const String& version = "", const String& timestamp = "");
 
 void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
-  StaticJsonDocument<256> doc;
+  //StaticJsonDocument<256> doc;
+  JsonDocument doc;
+  //doc.reserve(256);
   DeserializationError err = deserializeJson(doc, incomingData, len);
   if (err) {
     Serial.println("Failed to parse ESP-NOW JSON");

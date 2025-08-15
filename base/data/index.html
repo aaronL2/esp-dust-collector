@@ -1,68 +1,209 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>ESP Dust Collector Base</title>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESP Dust Collector – Base</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    h1, h2 { color: #333; }
-    li { margin-bottom: 4px; }
-    .badge { padding: 2px 6px; border-radius: 4px; background: #f0f0f0; }
+    :root {
+      --bg: #0b0c0f;
+      --card: #111318;
+      --muted: #9aa3b2;
+      --fg: #e6e9ef;
+      --accent: #6ea8fe;
+      --ok: #24c38e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 800px at 20% -10%, #1a2233 0%, var(--bg) 50%), var(--bg);
+      color: var(--fg); padding: 24px; line-height: 1.35;
+    }
+    .wrap { max-width: 900px; margin: 0 auto; }
+    h1 { margin: 0 0 16px; font-size: 28px; font-weight: 700; letter-spacing: 0.2px; }
+    .card { background: linear-gradient(180deg, #131622, #0e1016); border: 1px solid #1f2737; border-radius: var(--radius); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+    .section { padding: 18px 20px; }
+    .section + .section { border-top: 1px solid #1f2737; }
+
+    .kv { display: grid; grid-template-columns: 160px 1fr auto; gap: 10px 16px; align-items: center; }
+    .label { color: var(--muted); font-weight: 600; }
+    .value { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; word-break: break-all; }
+    .actions { text-align: right; }
+
+    .row { display: contents; }
+
+    .btn {
+      appearance: none; border: 1px solid #2b3042; background: #182032; color: var(--fg);
+      padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: transform .02s ease, background .2s ease;
+    }
+    .btn:hover { background: #1b2740; }
+    .btn:active { transform: translateY(1px); }
+    .btn-accent { border-color: #284a99; background: #183060; }
+    .btn-accent:hover { background: #1c3a75; }
+
+    .muted { color: var(--muted); }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #1f2737; }
+    th { color: var(--muted); font-weight: 700; }
+
+    .footer { margin-top: 18px; color: var(--muted); font-size: 12px; }
   </style>
 </head>
 <body>
-  <h1>Dust Collector Base</h1>
-  <ul>
-    <li><strong>Name:</strong> <span id="name"></span></li>
-    <li><strong>IP Address:</strong> <span id="ip"></span></li>
-    <li><strong>mDNS:</strong> <span id="mdns"></span></li>
-    <li><strong>MAC Address:</strong> <span id="mac"></span></li>
-    <li><strong>Firmware:</strong> <span id="fw" class="badge"></span></li>
-  </ul>
+  <div class="wrap">
+    <h1>Dust Collector – Base</h1>
 
-  <h2>Registered Stations</h2>
-  <ul id="stations"></ul>
+    <div class="card">
+      <div class="section">
+        <div class="kv" id="info">
+          <div class="row">
+            <div class="label">Name</div>
+            <div class="value" id="name">…</div>
+            <div class="actions"></div>
+          </div>
+          <div class="row">
+            <div class="label">mDNS</div>
+            <div class="value" id="mdns">…</div>
+            <div class="actions"></div>
+          </div>
+          <div class="row">
+            <div class="label">IP</div>
+            <div class="value" id="ip">…</div>
+            <div class="actions"></div>
+          </div>
+          <div class="row">
+            <div class="label">MAC</div>
+            <div class="value" id="mac">…</div>
+            <div class="actions"></div>
+          </div>
+          <div class="row">
+            <div class="label">FW</div>
+            <div class="value"><span id="fw">…</span></div>
+            <div class="actions">
+              <a class="btn btn-accent" href="/update">Update FW</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <form id="nameForm" class="kv" autocomplete="off">
+          <div class="row">
+            <div class="label">Change name</div>
+            <div class="value">
+              <input id="newName" type="text" placeholder="Enter new name" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #2b3042; background:#0c1018; color:var(--fg);" />
+              <div class="muted" style="margin-top:6px">(requires reboot)</div>
+            </div>
+            <div class="actions">
+              <button class="btn" type="submit">Save</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="section">
+        <button class="btn" id="rebootBtn">Reboot</button>
+        <span id="statusMsg" class="muted" style="margin-left:12px"></span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="section">
+        <h2 style="margin:0 0 8px; font-size:18px">Registered Stations</h2>
+        <div class="muted" id="stationsHint" style="margin-bottom:10px"></div>
+        <div style="overflow:auto">
+          <table id="stationsTable" aria-label="Registered Stations">
+            <thead>
+              <tr><th>Name</th><th>MAC</th><th>FW</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">UI v1 – unified styles for Base/Station</div>
+  </div>
 
   <script>
-    const name = document.getElementById("name");
-    const ip = document.getElementById("ip");
-    const mdns = document.getElementById("mdns");
-    const mac = document.getElementById("mac");
-    const fw = document.getElementById("fw");
+    const $ = (id) => document.getElementById(id);
 
-    fetch("/status")
-      .then(res => res.json())
-      .then(data => {
-        name.textContent = data.name;
-        ip.textContent = data.ip;
-        mdns.textContent = data.mdns;
-        mac.textContent = data.mac;
-        fw.textContent = data.fw;
-      })
-      .catch(() => {
-        // Fallback to /info if /status isn't available yet
-        fetch("/info")
-          .then(res => res.json())
-          .then(data => {
-            name.textContent = data.name;
-            ip.textContent = data.ip;
-            mdns.textContent = data.mdns;
-            mac.textContent = data.mac;
-            fw.textContent = "(unknown)";
-          });
-      });
-
-    fetch("/registry.json")
-      .then(res => res.json())
-      .then(reg => {
-        const ul = document.getElementById("stations");
-        reg.forEach(entry => {
-          const li = document.createElement("li");
-          const v = entry.fw ? ` – FW ${entry.fw}` : "";
-          li.textContent = `${entry.name} (${entry.mac})${v}`;
-          ul.appendChild(li);
+    function loadStatus() {
+      fetch('/status', { cache: 'no-store' })
+        .then(r => r.json())
+        .then(d => {
+          $('name').textContent = d.name || '';
+          $('ip').textContent = d.ip || '';
+          $('mdns').textContent = d.mdns || '';
+          $('mac').textContent = d.mac || '';
+          $('fw').textContent = d.fw || '';
+        })
+        .catch(() => {
+          fetch('/info', { cache: 'no-store' })
+            .then(r => r.json())
+            .then(d => {
+              $('name').textContent = d.name || '';
+              $('ip').textContent = d.ip || '';
+              $('mdns').textContent = d.mdns || '';
+              $('mac').textContent = d.mac || '';
+              $('fw').textContent = '(unknown)';
+            });
         });
+    }
+
+    function loadRegistry() {
+      fetch('/registry.json', { cache: 'no-store' })
+        .then(r => r.json())
+        .then(list => {
+          const tbody = document.querySelector('#stationsTable tbody');
+          tbody.innerHTML = '';
+          (list || []).forEach(entry => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${entry.name || ''}</td><td>${entry.mac || ''}</td><td>${entry.fw || ''}</td>`;
+            tbody.appendChild(tr);
+          });
+          $('stationsHint').textContent = list?.length ? `${list.length} station(s)` : 'No stations registered yet.';
+        })
+        .catch(() => { $('stationsHint').textContent = 'Unable to load registry.'; });
+    }
+
+    function hookNameForm() {
+      $('nameForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const newName = $('newName').value.trim();
+        if (!newName) return;
+        fetch('/set-name', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName })
+        })
+        .then(r => r.json())
+        .then(d => {
+          $('statusMsg').textContent = 'Rebooting…';
+          setTimeout(() => { window.location.href = d.newMdns || '/'; }, 3500);
+        })
+        .catch(() => $('statusMsg').textContent = 'Error saving name');
       });
+    }
+
+    function hookReboot() {
+      $('rebootBtn').addEventListener('click', () => {
+        if (!confirm('Reboot device now?')) return;
+        $('statusMsg').textContent = 'Rebooting…';
+        fetch('/reboot', { method: 'POST' })
+          .catch(() => {})
+          .finally(() => setTimeout(() => location.reload(), 4000));
+      });
+    }
+
+    loadStatus();
+    loadRegistry();
+    hookNameForm();
+    hookReboot();
   </script>
 </body>
 </html>

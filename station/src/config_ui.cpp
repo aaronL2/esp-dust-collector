@@ -32,8 +32,12 @@ static void loadConfig() {
 
   JsonDocument doc;
   if (deserializeJson(doc, f) == DeserializationError::Ok) {
-    if (doc.containsKey("friendlyName")) friendlyName = doc["friendlyName"].as<String>();
-    if (doc.containsKey("baseMac"))      baseMac      = doc["baseMac"].as<String>();
+    if (doc["friendlyName"].is<String>()) {
+      friendlyName = doc["friendlyName"].as<String>();   // <- assign
+    }
+    if (doc["baseMac"].is<String>()) {
+      baseMac = doc["baseMac"].as<String>();             // <- assign
+    }
   }
   f.close();
 }
@@ -91,33 +95,37 @@ void configUI_setup() {
   // Rename station (JSON: { "name": "<new>" }) -> responds with { newMdns }
   // Then triggers a clean reboot shortly after responding.
   server.on("/set-name", HTTP_POST,
-    [](AsyncWebServerRequest* /*req*/){},
-    nullptr,
-    [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
-      JsonDocument body;
-      DeserializationError err = deserializeJson(body, data, len);
-      if (err || !body.containsKey("name")) {
-        req->send(400, "text/plain", "Invalid name");
-        return;
-      }
-      friendlyName = body["name"].as<String>();
-      saveConfig();
+  [](AsyncWebServerRequest* /*req*/){},
+  nullptr,
+  [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+    JsonDocument body;
+    DeserializationError err = deserializeJson(body, data, len);
 
-      JsonDocument res;
-      res["newMdns"] = "http://" + getMdnsName() + ".local";
-      String out; serializeJson(res, out);
-      req->send(200, "application/json", out);
-
-      // Non-blocking reboot ~500ms later
-      esp_timer_handle_t reboot_timer;
-      esp_timer_create_args_t args = {};
-      args.callback = [](void*) { ESP.restart(); };
-      args.name = "rebootTimer";
-      if (esp_timer_create(&args, &reboot_timer) == ESP_OK) {
-        esp_timer_start_once(reboot_timer, 500000); // microseconds
-      }
+    // Invalid if deserialization failed OR missing/empty "name"
+    if (err || body["name"].isNull() || !body["name"].is<const char*>()
+        || String((const char*)body["name"]).isEmpty()) {
+      req->send(400, "text/plain", "Invalid name");
+      return;
     }
-  );
+
+    friendlyName = body["name"].as<String>();
+    saveConfig();
+
+    JsonDocument res;
+    res["newMdns"] = "http://" + getMdnsName() + ".local";
+    String out; serializeJson(res, out);
+    req->send(200, "application/json", out);
+
+    // Non-blocking reboot ~500ms later
+    esp_timer_handle_t reboot_timer;
+    esp_timer_create_args_t args = {};
+    args.callback = [](void*) { ESP.restart(); };
+    args.name = "rebootTimer";
+    if (esp_timer_create(&args, &reboot_timer) == ESP_OK) {
+      esp_timer_start_once(reboot_timer, 500000); // microseconds
+    }
+  }
+);
 
   // Register with Base over HTTP (Station -> Base)
   // POST to http://base.local/register  body: { name, mac, ip, mdns, fw }
