@@ -19,4 +19,6 @@ private:
 
 extern CommsClass comms;
 
+void registerWithBaseNow();
+
 #endif

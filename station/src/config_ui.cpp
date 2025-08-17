@@ -8,6 +8,7 @@
 #include <esp_timer.h>
 
 #include <config_ui.h>
+#include "comms.h"
 #include "ota.h"
 #include "version.h"
 
@@ -75,30 +76,8 @@ public:
       });
 
     server.on("/register-with-base", HTTP_POST, [](AsyncWebServerRequest* req) {
-      const String targetURL = "http://base.local/register";
-      JsonDocument doc;
-      doc["name"] = configUI.getFriendlyName();
-      doc["mac"]  = WiFi.macAddress();
-      doc["ip"]   = WiFi.localIP().toString();
-      doc["mdns"] = configUI.getMdnsName() + ".local";
-      doc["fw"]   = Version::firmware();
-      String json; serializeJson(doc, json);
-      Serial.printf("Registering with Base: %s\n", json.c_str());
-      WiFiClient client;
-      HTTPClient http;
-      http.begin(client, targetURL);
-      http.addHeader("Content-Type", "application/json");
-      const int httpCode = http.POST(json);
-      String response = "Registration ";
-      if (httpCode > 0) {
-        response += "succeeded: ";
-        response += http.getString();
-      } else {
-        response += "failed: ";
-        response += http.errorToString(httpCode);
-      }
-      http.end();
-      req->send(200, "text/plain", response);
+      registerWithBaseNow();
+      req->send(200, "text/plain", "Registration message sent");
     });
 
     setupOTA(server);
