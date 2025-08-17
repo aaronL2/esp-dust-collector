@@ -1,7 +1,7 @@
 #include "comms.h"
 #include "servo_control.h"
 #include <ArduinoJson.h>
-#include "config_ui.h"
+#include <config_ui.h>
 
 CommsClass comms;
 
@@ -47,7 +47,7 @@ void registerWithBaseNow() {
   JsonDocument doc;
   //doc.reserve(256);
   doc["type"] = "register";
-  doc["name"] = getFriendlyName();
+  doc["name"] = configUI.getFriendlyName();
   doc["mac"] = WiFi.macAddress();
   doc["version"] = "1.0.0";  // change to match your firmware version
   doc["timestamp"] = String(millis() / 1000);

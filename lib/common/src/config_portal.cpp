@@ -4,7 +4,7 @@
 #include "config_portal.h"
 #include "net_prefs.h"
 //#include "display.h"       // your existing display wrapper
-#include "config_ui.h"     // for getFriendlyName() if you have it
+#include <config_ui.h>
 #ifdef __has_include
   #if __has_include("generated/version.h")
     #include "generated/version.h"
@@ -22,7 +22,7 @@ static AsyncWebServer apServer(80);
 
 static void showApPortalOnOled(const char* ap_ssid) {
   const String title = String("AP: ") + ap_ssid;
-  const String name  = getFriendlyName();
+  const String name  = configUI.getFriendlyName();
   const String ip    = WiFi.softAPIP().toString();
   const String mac   = WiFi.softAPmacAddress();
   const String fw    = String(FW_VERSION);
@@ -71,7 +71,7 @@ void startConfigPortal_Blocking() {
 
     NetPrefs::save(s, p);
     req->send(200, "text/plain", "Saved. Reconnecting...");
-    status_show("Joining Wi-Fi…", getFriendlyName(), "-", "-", String(FW_VERSION));
+    status_show("Joining Wi-Fi…", configUI.getFriendlyName(), "-", "-", String(FW_VERSION));
 
     dnsServer.stop();
     apServer.end();

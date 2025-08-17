@@ -13,7 +13,7 @@
 #include "display.h"
 #include "display_status.h"
 #include "comms.h"
-#include "config_ui.h"
+#include <config_ui.h>
 #include "current_sensor.h"
 #include "ota.h"
 #include "servo_control.h"
@@ -23,14 +23,15 @@
 extern CommsClass comms;
 extern Display display;
 
+AsyncWebServer server(80);
 static DisplayStatus status(display.getU8g2());
 
 static unsigned long lastOledUpdate = 0;
 static const unsigned long OLED_UPDATE_MS = 10000;
 
 static void updateOled() {
-  const String name = getFriendlyName();
-  const String mdns = String(getMdnsName()) + ".local";
+  const String name = configUI.getFriendlyName();
+  const String mdns = configUI.getMdnsName() + ".local";
   const String ip   = WiFi.isConnected() ? WiFi.localIP().toString() : "-";
   const String mac  = WiFi.macAddress();
   const String fw   = String(FW_VERSION);
@@ -41,11 +42,12 @@ void setup() {
   Serial.begin(115200);
   delay(100);
   
-  setupWiFi(); 
-  
+  setupWiFi();
+  configUI.loadConfig();
+
   Serial.println();
   Serial.println("=============================");
-  Serial.printf("Starting Station: %s\n", getFriendlyName().c_str());
+  Serial.printf("Starting Station: %s\n", configUI.getFriendlyName().c_str());
   Serial.println("=============================");
   
   ServoControl.begin();
@@ -56,9 +58,10 @@ void setup() {
   status.begin();
   updateOled();
 
-  configUI_setup();
-  comms.setBaseMac(getBaseMac());
+  configUI.begin(server);
+  comms.setBaseMac(configUI.getBaseMac());
   comms.begin();
+  server.begin();
 }
 
 void loop() {

@@ -9,7 +9,7 @@
 
 #include "display_status.h"
 #include "version.h"
-#include "config_ui.h"
+#include <config_ui.h>
 #include "registry_handler.h"
 #include "display.h"
 #include "ota.h"
@@ -29,8 +29,8 @@ static unsigned long lastOledUpdate = 0;
 static const unsigned long OLED_UPDATE_MS = 10000;
 
 static void updateOled() {
-  const String name = getFriendlyName();
-  const String mdns = String(getMdnsName()) + ".local";
+  const String name = configUI.getFriendlyName();
+  const String mdns = configUI.getMdnsName() + ".local";
   const String ip   = WiFi.isConnected() ? WiFi.localIP().toString() : "-";
   const String mac  = WiFi.macAddress();
   const String fw   = String(FW_VERSION);
@@ -54,8 +54,8 @@ void setup() {
     return;
   }
 
-  if (MDNS.begin(getMdnsName().c_str())) {
-    Serial.println(String("http://") + getMdnsName() + ".local");
+  if (MDNS.begin(configUI.getMdnsName().c_str())) {
+    Serial.println(String("http://") + configUI.getMdnsName() + ".local");
   }
   
   display.begin();
@@ -74,7 +74,7 @@ void setup() {
     //doc.reserve(256);
     doc["name"] = configUI.getFriendlyName();
     doc["ip"] = WiFi.localIP().toString();
-    doc["mdns"] = String(getMdnsName()) + ".local";
+    doc["mdns"] = configUI.getMdnsName() + ".local";
     doc["mac"] = WiFi.macAddress();
     String json;
     serializeJson(doc, json);
@@ -89,7 +89,7 @@ void setup() {
     doc["name"]   = configUI.getFriendlyName();
     doc["fw"]     = FW_VERSION;
     doc["ip"]     = WiFi.localIP().toString();
-    doc["mdns"]   = String(getMdnsName()) + ".local";
+    doc["mdns"]   = configUI.getMdnsName() + ".local";
     doc["mac"]    = WiFi.macAddress();
     doc["role"]   = "base";
     doc["uptime"] = (uint32_t)(millis() / 1000);
