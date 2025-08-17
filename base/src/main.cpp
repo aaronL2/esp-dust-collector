@@ -40,7 +40,9 @@ static void updateOled() {
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  setupWiFi(); 
+  display.begin();
+  status.begin();
+  setupWiFi();
   Serial.println("\nBooting Base...");
 
   configUI.loadConfig();
@@ -58,8 +60,6 @@ void setup() {
     Serial.println(String("http://") + configUI.getMdnsName() + ".local");
   }
   
-  display.begin();
-  status.begin();
   updateOled();
 
   configUI.begin(server);

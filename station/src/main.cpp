@@ -41,7 +41,9 @@ static void updateOled() {
 void setup() {
   Serial.begin(115200);
   delay(100);
-  
+  display.begin();
+  status.begin();
+
   setupWiFi();
   configUI.loadConfig();
 
@@ -54,8 +56,6 @@ void setup() {
   CurrentSensor.begin();
   
   Serial.printf("\n✅ Station Wi-Fi connected. IP: %s\n", WiFi.localIP().toString().c_str());
-  display.begin();
-  status.begin();
   updateOled();
 
   configUI.begin(server);

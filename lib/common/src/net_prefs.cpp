@@ -6,7 +6,13 @@ static const char* kNs = "net";
 
 bool NetPrefs::load(String& ssid, String& pass) {
   Preferences p;
-  if (!p.begin("net", /*readOnly=*/false)) return false;  // was true
+  if (!p.begin(kNs, /*readOnly=*/true)) return false;
+  if (!p.isKey("ssid")) {
+    ssid = "";
+    pass = "";
+    p.end();
+    return false;
+  }
   ssid = p.getString("ssid", "");
   pass = p.getString("pass", "");
   p.end();
