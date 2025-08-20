@@ -14,7 +14,7 @@ void updateStationRegistry(const String& mac, const String& name,
   }
 
   JsonArray arr = doc.to<JsonArray>();
-  JsonObject target = nullptr;
+  JsonObject target;
   for (JsonObject obj : arr) {
     if (mac == obj["mac"].as<String>()) {
       target = obj;

@@ -1,5 +1,6 @@
 .pio/
-.vscode/
+.vscode/*
+!.vscode/c_cpp_properties.json
 .DS_Store
 *.pyc
 __pycache__/
