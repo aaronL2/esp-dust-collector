@@ -76,9 +76,10 @@ public:
       });
 
     server.on("/register-with-base", HTTP_POST, [](AsyncWebServerRequest* req) {
-      registerWithBaseNow();
-      req->send(200, "text/plain", "Registration message sent");
-    });
+      bool ok = registerWithBaseNow();
+      req->send(ok ? 200 : 500, "text/plain",
+                ok ? "Registered" : "No acknowledgment from base");
+                  });
 
     setupOTA(server);
   }

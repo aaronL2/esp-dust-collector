@@ -5,6 +5,9 @@
 
 CommsClass comms;
 
+// Set when an acknowledgment packet is received from the base
+static volatile bool registerAck = false;
+
 void CommsClass::begin() {
   if (esp_now_init() != ESP_OK) {
     Serial.println("ESP-NOW init failed!");
@@ -33,19 +36,20 @@ void CommsClass::sendCurrent(float amps) {
 }
 
 void CommsClass::onReceive(const uint8_t* mac, const uint8_t* data, int len) {
-  if (len > 0) {
+  if (len == 1 && (data[0] == 0 || data[0] == 1)) {
     if (data[0] == 1) {
       ServoControl.moveTo(90);  // open gate
     } else {
       ServoControl.moveTo(0);   // close gate
     }
+  } else {
+    // Any non-servo packet is treated as an acknowledgment
+    registerAck = true;
   }
 }
 
-void registerWithBaseNow() {
-  //ArduinoJson::StaticJsonDocument<256> doc;
+bool registerWithBaseNow() {
   JsonDocument doc;
-  //doc.reserve(256);
   doc["type"] = "register";
   doc["name"] = configUI.getFriendlyName();
   doc["mac"] = WiFi.macAddress();
@@ -53,9 +57,18 @@ void registerWithBaseNow() {
   doc["timestamp"] = String(millis() / 1000);
 
   uint8_t buf[256];
-  serializeJson(doc, Serial); Serial.println(); // DEBUG
+  serializeJson(doc, Serial);
+  Serial.println();  // DEBUG
   size_t len = serializeJson(doc, buf);
-  comms.sendToBase(buf, len);  // assumes you already have this in comms
+
+  registerAck = false;
+  comms.sendToBase(buf, len);
+
+  unsigned long start = millis();
+  while (!registerAck && millis() - start < 1000) {
+    delay(10);
+  }
+  return registerAck;
 }
 
 void CommsClass::sendToBase(const uint8_t* data, size_t len) {

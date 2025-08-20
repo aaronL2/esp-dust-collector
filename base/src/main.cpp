@@ -14,6 +14,7 @@
 #include "display.h"
 #include "ota.h"
 #include "wifi_manager.h"
+#include "comms.h"
 
 // Fallback so builds still succeed even if the pre-build script didn't run
 #ifndef FW_VERSION
@@ -60,6 +61,8 @@ void setup() {
     Serial.println(String("http://") + configUI.getMdnsName() + ".local");
   }
   
+  comms_setup();
+
   updateOled();
 
   configUI.begin(server);

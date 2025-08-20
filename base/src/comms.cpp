@@ -1,11 +1,9 @@
 #include "comms.h"
+#include "registry_handler.h"
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include <SPIFFS.h>
-
-// External function from config_ui.cpp
-extern void updateStationRegistry(const String& mac, const String& name, const String& version = "", const String& timestamp = "");
 
 void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
   //StaticJsonDocument<256> doc;

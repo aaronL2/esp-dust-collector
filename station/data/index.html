@@ -171,9 +171,11 @@
       $('registerBtn').addEventListener('click', () => {
         $('regStatus').textContent = 'Registering…';
         fetch('/register-with-base', { method: 'POST' })
-          .then(r => r.text())
-          .then(t => $('regStatus').textContent = t || 'Registered')
-          .catch(() => $('regStatus').textContent = 'Error registering');
+          .then(async r => {
+            const t = await r.text();
+            $('regStatus').textContent = t || (r.ok ? 'Registered' : 'Registration failed');
+          })
+                    .catch(() => $('regStatus').textContent = 'Error registering');
       });
     }
 

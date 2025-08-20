@@ -4,6 +4,53 @@
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
 
+void updateStationRegistry(const String& mac, const String& name,
+                           const String& version, const String& timestamp) {
+  JsonDocument doc;
+  File file = SPIFFS.open("/registry.json", "r");
+  if (file) {
+    deserializeJson(doc, file);
+    file.close();
+  }
+
+  JsonArray arr = doc.to<JsonArray>();
+  JsonObject target = nullptr;
+  for (JsonObject obj : arr) {
+    if (mac == obj["mac"].as<String>()) {
+      target = obj;
+      break;
+    }
+  }
+  if (!target) {
+    target = arr.add<JsonObject>();
+  }
+
+  target["mac"] = mac;
+  if (!name.isEmpty()) {
+    target["name"] = name;
+  } else if (!target.containsKey("name")) {
+    target["name"] = "";
+  }
+
+  if (!version.isEmpty()) {
+    target["version"] = version;
+  } else if (!target.containsKey("version")) {
+    target["version"] = "";
+  }
+
+  if (!timestamp.isEmpty()) {
+    target["timestamp"] = timestamp;
+  } else {
+    target["timestamp"] = String(millis());
+  }
+
+  file = SPIFFS.open("/registry.json", "w");
+  if (file) {
+    serializeJson(doc, file);
+    file.close();
+  }
+}
+
 void setupRegistryRoutes(AsyncWebServer& server) {
   server.on("/registry.json", HTTP_GET, [](AsyncWebServerRequest *request) {
     File file = SPIFFS.open("/registry.json", "r");
@@ -36,34 +83,10 @@ void setupRegistryRoutes(AsyncWebServer& server) {
       return;
     }
 
-    JsonDocument doc;      // load registry (array of entries)
-    File file = SPIFFS.open("/registry.json", "r");
-    if (file) {
-      deserializeJson(doc, file);
-      file.close();
-    }
+    const String newVersion = incoming["version"] | "";
+    const String newTimestamp = incoming["timestamp"] | "";
+    updateStationRegistry(newMac, newName, newVersion, newTimestamp);
 
-    // Ensure root is an array (AJv7: use to<JsonArray>() to coerce)
-    JsonArray arr = doc.to<JsonArray>();
-
-    bool found = false;
-    for (JsonObject obj : arr) {
-      if (newMac == obj["mac"].as<String>()) {
-        obj["name"] = newName;
-        found = true;
-        break;
-      }
-    }
-
-    if (!found) {
-      JsonObject entry = arr.add<JsonObject>();
-      entry["name"] = newName;     // <- fixed typo: was newObj
-      entry["mac"]  = newMac;
-    }
-
-    file = SPIFFS.open("/registry.json", "w");
-    serializeJson(doc, file);
-    file.close();
 
     JsonDocument resp;
     resp["success"] = true;
