@@ -26,6 +26,11 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
     String macStr = doc["mac"];
     updateStationRegistry(macStr, "", "", "");
     Serial.printf("ESP-NOW Ping: %s\n", macStr.c_str());
+  } else if (doc["type"] == "current") {
+    String macStr = doc["mac"] | "";
+    float amps = doc["amps"] | 0.0f;
+    updateStationRegistry(macStr, "", "", "");
+    Serial.printf("ESP-NOW Current: %.2f A from %s\n", amps, macStr.c_str());
   }
 }
 

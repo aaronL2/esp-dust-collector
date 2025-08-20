@@ -122,36 +122,4 @@ void setupRegistryRoutes(AsyncWebServer& server) {
     request->send(200, "application/json", out);
   }
   );
-  }
-
-void updateStationRegistry(const String& mac, const String& name, const String& version, const String& timestamp) {
-  JsonDocument doc;
-  File file = SPIFFS.open("/registry.json", "r");
-  if (file) {
-    deserializeJson(doc, file);
-    file.close();
-  }
-
-  JsonArray arr = doc.to<JsonArray>();
-  bool found = false;
-  for (JsonObject obj : arr) {
-    if (mac == obj["mac"].as<String>()) {
-      if (!name.isEmpty()) obj["name"] = name;
-      if (!version.isEmpty()) obj["fw"] = version;
-      found = true;
-      break;
-    }
-  }
-
-  if (!found) {
-    JsonObject entry = arr.add<JsonObject>();
-    entry["mac"] = mac;
-    if (!name.isEmpty()) entry["name"] = name;
-    if (!version.isEmpty()) entry["fw"] = version;
-  }
-
-  file = SPIFFS.open("/registry.json", "w");
-  if (!file) return;
-  serializeJson(doc, file);
-  file.close();
 }

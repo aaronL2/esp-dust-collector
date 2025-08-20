@@ -28,6 +28,8 @@ static DisplayStatus status(display.getU8g2());
 
 static unsigned long lastOledUpdate = 0;
 static const unsigned long OLED_UPDATE_MS = 10000;
+static unsigned long lastCurrentSend = 0;
+static const unsigned long CURRENT_SEND_MS = 1000;
 
 static void updateOled() {
   const String name = configUI.getFriendlyName();
@@ -68,6 +70,11 @@ void loop() {
   // Read and print current
   float current = CurrentSensor.read();
   Serial.printf("Current: %.2f A\n", current);
+    unsigned long now = millis();
+  if (now - lastCurrentSend >= CURRENT_SEND_MS) {
+    comms.sendCurrent(current);
+    lastCurrentSend = now;
+  }
   ElegantOTA.loop();   // <- required so OTA can trigger reboot
 
   if (millis() - lastOledUpdate >= OLED_UPDATE_MS) {

@@ -19,7 +19,15 @@ void CommsClass::begin() {
   memcpy(peerInfo.peer_addr, baseMac, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
-  esp_now_add_peer(&peerInfo);
+    esp_err_t addStatus = esp_now_add_peer(&peerInfo);
+  if (addStatus != ESP_OK) {
+    Serial.printf("ESP-NOW: add_peer failed (%d), retrying\n", addStatus);
+    esp_now_del_peer(peerInfo.peer_addr);
+    addStatus = esp_now_add_peer(&peerInfo);
+    if (addStatus != ESP_OK) {
+      Serial.printf("ESP-NOW: add_peer retry failed (%d)\n", addStatus);
+    }
+  }
 }
 
 void CommsClass::setBaseMac(const String& macStr) {
@@ -32,7 +40,15 @@ void CommsClass::parseMac(const String& macStr, uint8_t* mac) {
 }
 
 void CommsClass::sendCurrent(float amps) {
-  esp_now_send(baseMac, (uint8_t*)&amps, sizeof(float));
+  // Build a JSON packet so the base can easily parse the current reading
+  JsonDocument doc;
+  doc["type"] = "current";
+  doc["mac"] = WiFi.macAddress();
+  doc["amps"] = amps;
+
+  uint8_t buf[64];
+  size_t len = serializeJson(doc, buf);
+  sendToBase(buf, len);
 }
 
 void CommsClass::onReceive(const uint8_t* mac, const uint8_t* data, int len) {
