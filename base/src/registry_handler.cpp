@@ -75,6 +75,8 @@ void setupRegistryRoutes(AsyncWebServer& server) {
 
     const String newName = incoming["name"] | "";
     const String newMac  = incoming["mac"]  | "";
+    String newFw = incoming["fw"] | "";
+    if (newFw.isEmpty()) newFw = incoming["version"] | "";
     if (newName.isEmpty() || newMac.isEmpty()) {
       JsonDocument doc;
       doc["error"] = "Missing name or mac";
@@ -83,15 +85,73 @@ void setupRegistryRoutes(AsyncWebServer& server) {
       return;
     }
 
-    const String newVersion = incoming["version"] | "";
-    const String newTimestamp = incoming["timestamp"] | "";
-    updateStationRegistry(newMac, newName, newVersion, newTimestamp);
+    JsonDocument doc;      // load registry (array of entries)
+    File file = SPIFFS.open("/registry.json", "r");
+    if (file) {
+      deserializeJson(doc, file);
+      file.close();
+    }
 
+    // Ensure root is an array (AJv7: use to<JsonArray>() to coerce)
+    JsonArray arr = doc.to<JsonArray>();
+
+    bool found = false;
+    for (JsonObject obj : arr) {
+      if (newMac == obj["mac"].as<String>()) {
+        obj["name"] = newName;
+        if (!newFw.isEmpty()) obj["fw"] = newFw;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      JsonObject entry = arr.add<JsonObject>();
+      entry["name"] = newName;     // <- fixed typo: was newObj
+      entry["mac"]  = newMac;
+      if (!newFw.isEmpty()) entry["fw"] = newFw;
+    }
+
+    file = SPIFFS.open("/registry.json", "w");
+    serializeJson(doc, file);
+    file.close();
 
     JsonDocument resp;
     resp["success"] = true;
     String out; serializeJson(resp, out);
     request->send(200, "application/json", out);
   }
-);
+  );
+  }
+
+void updateStationRegistry(const String& mac, const String& name, const String& version, const String& timestamp) {
+  JsonDocument doc;
+  File file = SPIFFS.open("/registry.json", "r");
+  if (file) {
+    deserializeJson(doc, file);
+    file.close();
+  }
+
+  JsonArray arr = doc.to<JsonArray>();
+  bool found = false;
+  for (JsonObject obj : arr) {
+    if (mac == obj["mac"].as<String>()) {
+      if (!name.isEmpty()) obj["name"] = name;
+      if (!version.isEmpty()) obj["fw"] = version;
+      found = true;
+      break;
+    }
+  }
+
+  if (!found) {
+    JsonObject entry = arr.add<JsonObject>();
+    entry["mac"] = mac;
+    if (!name.isEmpty()) entry["name"] = name;
+    if (!version.isEmpty()) entry["fw"] = version;
+  }
+
+  file = SPIFFS.open("/registry.json", "w");
+  if (!file) return;
+  serializeJson(doc, file);
+  file.close();
 }

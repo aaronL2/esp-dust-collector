@@ -164,7 +164,7 @@
           tbody.innerHTML = '';
           (list || []).forEach(entry => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${entry.name || ''}</td><td>${entry.mac || ''}</td><td>${entry.fw || ''}</td>`;
+            tr.innerHTML = `<td>${entry.name || ''}</td><td>${entry.mac || ''}</td><td>${entry.fw || entry.version || ''}</td>`;
             tbody.appendChild(tr);
           });
           $('stationsHint').textContent = list?.length ? `${list.length} station(s)` : 'No stations registered yet.';
