@@ -30,6 +30,9 @@ static unsigned long lastOledUpdate = 0;
 static const unsigned long OLED_UPDATE_MS = 10000;
 static unsigned long lastCurrentSend = 0;
 static const unsigned long CURRENT_SEND_MS = 1000;
+static bool registered = false;
+static unsigned long lastRegisterAttempt = 0;
+static const unsigned long REGISTER_RETRY_MS = 10000;
 
 static void updateOled() {
   const String name = configUI.getFriendlyName();
@@ -63,10 +66,21 @@ void setup() {
   configUI.begin(server);
   comms.setBaseMac(configUI.getBaseMac());
   comms.begin();
-  server.begin();
+  registered = registerWithBaseNow();
+  lastRegisterAttempt = millis();
+  Serial.printf("Initial registration %s\n", registered ? "succeeded" : "failed");
+server.begin();
 }
 
 void loop() {
+  unsigned long now = millis();
+
+  if (!registered && now - lastRegisterAttempt >= REGISTER_RETRY_MS) {
+    registered = registerWithBaseNow();
+    lastRegisterAttempt = now;
+    Serial.printf("Register retry %s\n", registered ? "succeeded" : "failed");
+  }
+
   // Read and print current
   float current = CurrentSensor.read();
   Serial.printf("Current: %.2f A\n", current);
