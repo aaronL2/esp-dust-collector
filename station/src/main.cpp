@@ -84,7 +84,7 @@ void loop() {
   // Read and print current
   float current = CurrentSensor.read();
   Serial.printf("Current: %.2f A\n", current);
-    unsigned long now = millis();
+  now = millis();
   if (now - lastCurrentSend >= CURRENT_SEND_MS) {
     comms.sendCurrent(current);
     lastCurrentSend = now;

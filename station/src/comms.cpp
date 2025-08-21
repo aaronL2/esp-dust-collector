@@ -52,29 +52,30 @@ void CommsClass::sendCurrent(float amps) {
 }
 
 void CommsClass::onReceive(const uint8_t *mac, const uint8_t *data, int len) {
+  // Ignore packets not originating from the base
+  if (memcmp(mac, comms.baseMac, 6) != 0) {
+    return;
+  }
+
   if (len == 1 && (data[0] == 0 || data[0] == 1)) {
     if (data[0] == 1) {
       ServoControl.moveTo(90);  // open gate
     } else {
       ServoControl.moveTo(0);   // close gate
     }
-  } else {
-    // Parse the packet as JSON and check for a matching acknowledgment token
-    JsonDocument doc;
-    if (deserializeJson(doc, data, len) == DeserializationError::Ok) {
-      String type = doc["type"] | "";
-      String token = doc["token"] | "";
-      if (type == "ack" && token == pendingToken) {
-        registerAck = true;
-      }
     return;
   }
 
-  // Only treat packets from the base containing the "ack" token as
-  // acknowledgments
-  if (memcmp(mac, comms.baseMac, 6) == 0 && len == 3 &&
-      memcmp(data, "ack", 3) == 0) {
-    }
+  // Parse the packet as JSON and check for a matching acknowledgment token
+  JsonDocument doc;
+  if (deserializeJson(doc, data, len) != DeserializationError::Ok) {
+    return;
+  }
+
+  String type = doc["type"] | "";
+  String token = doc["token"] | "";
+  if (type == "ack" && token == pendingToken) {
+    registerAck = true;
   }
 }
 
