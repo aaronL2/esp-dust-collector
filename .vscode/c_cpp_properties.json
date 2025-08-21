@@ -499,9 +499,9 @@
                 ]
             },
             "defines": [
-                "FW_VERSION=\"0.20250820.123020\"",
-                "GIT_HASH=\"ea7bb23\"",
-                "BUILD_TIME=\"20250820.123020\"",
+                "FW_VERSION=\"0.20250821.085544\"",
+                "GIT_HASH=\"1de218d\"",
+                "BUILD_TIME=\"20250821.085544\"",
                 "PLATFORMIO=60118",
                 "ARDUINO_ESP32_DEV",
                 "ELEGANTOTA_USE_ASYNC_WEBSERVER=1",

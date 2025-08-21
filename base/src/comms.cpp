@@ -4,6 +4,7 @@
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include <SPIFFS.h>
+#include <esp_err.h>
 
 void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
   //StaticJsonDocument<256> doc;
@@ -22,6 +23,27 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
     String timestamp = doc["timestamp"] | "";
     updateStationRegistry(macStr, name, version, timestamp);
     Serial.printf("ESP-NOW Register: %s (%s)\n", name.c_str(), macStr.c_str());
+
+    // Ensure the sender is a known peer so we can respond
+    if (!esp_now_is_peer_exist(mac)) {
+      esp_now_peer_info_t peerInfo = {};
+      memcpy(peerInfo.peer_addr, mac, 6);
+      peerInfo.channel = 0;
+      peerInfo.encrypt = false;
+      esp_err_t addStatus = esp_now_add_peer(&peerInfo);
+      if (addStatus != ESP_OK) {
+        Serial.printf("ESP-NOW: add_peer failed (%d)\n", addStatus);
+      }
+    }
+
+    // Send a simple acknowledgment back to the registering station
+    const uint8_t ack[] = {'a', 'c', 'k'};
+    esp_err_t sendStatus = esp_now_send(mac, ack, sizeof(ack));
+    if (sendStatus == ESP_OK) {
+      Serial.println("ESP-NOW: sent ack");
+    } else {
+      Serial.printf("ESP-NOW: failed to send ack (%d)\n", sendStatus);
+    }
   } else if (doc["type"] == "ping") {
     String macStr = doc["mac"];
     updateStationRegistry(macStr, "", "", "");
