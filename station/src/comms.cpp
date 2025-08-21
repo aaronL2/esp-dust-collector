@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <config_ui.h>
 #include <cstring>
+#include <cstdio>
 
 CommsClass comms;
 
@@ -52,6 +53,23 @@ void CommsClass::sendCurrent(float amps) {
 }
 
 void CommsClass::onReceive(const uint8_t *mac, const uint8_t *data, int len) {
+  bool unset = true;
+  for (int i = 0; i < 6; ++i) {
+    if (comms.baseMac[i] != 0) {
+      unset = false;
+      break;
+    }
+  }
+  if (unset) {
+    Serial.println("ESP-NOW: base MAC unset, adopting sender");
+    memcpy(comms.baseMac, mac, 6);
+    char buf[18];
+    snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    configUI.setBaseMac(String(buf));
+    configUI.saveConfig();
+  }
+
   // Ignore packets not originating from the base
   if (memcmp(mac, comms.baseMac, 6) != 0) {
     return;

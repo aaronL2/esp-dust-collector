@@ -122,6 +122,7 @@ public:
   }
 
   void setFriendlyName(const String& name) { friendlyName = name; }
+  void setBaseMac(const String& mac) override { baseMac = mac; }
 
 private:
   String friendlyName = "station";

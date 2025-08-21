@@ -39,6 +39,8 @@ public:
     return n;
   }
 
+  void setBaseMac(const String& mac) override { config["base_mac"] = mac; }
+
   void setWifiSSID(const String& ssid) { config["wifi_ssid"] = ssid; }
   void setWifiPassword(const String& pass) { config["wifi_password"] = pass; }
   String getWifiSSID() const { return config["wifi_ssid"] | ""; }
