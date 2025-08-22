@@ -31,13 +31,18 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
     return;
   }
 
+  String macStr = jsonMac.isEmpty() ? senderMac : jsonMac;
+
   if (doc["type"] == "register") {
+    serializeJson(doc, Serial);
+    Serial.println();
     String name = doc["name"];
-    String fw = doc["fw"] | doc["version"] | "";
+    String fw = doc["fw"] | "";
+    if (fw.isEmpty()) fw = doc["version"] | "";
     String timestamp = doc["timestamp"] | "";
     String token = doc["token"] | "";
-    updateStationRegistry(jsonMac, name, fw, timestamp);
-    Serial.printf("ESP-NOW Register: %s (%s)\n", name.c_str(), jsonMac.c_str());
+    updateStationRegistry(macStr, name, fw, timestamp);
+    Serial.printf("ESP-NOW Register: %s (%s)\n", name.c_str(), macStr.c_str());
 
     // Ensure the sender is a known peer so we can respond
     if (!esp_now_is_peer_exist(mac)) {
@@ -64,12 +69,12 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
       Serial.printf("ESP-NOW: failed to send ack (%d)\n", sendStatus);
     }
   } else if (doc["type"] == "ping") {
-    updateStationRegistry(jsonMac, "", "", "");
-    Serial.printf("ESP-NOW Ping: %s\n", jsonMac.c_str());
+    updateStationRegistry(macStr, "", "", "");
+    Serial.printf("ESP-NOW Ping: %s\n", macStr.c_str());
   } else if (doc["type"] == "current") {
     float amps = doc["amps"] | 0.0f;
-    updateStationRegistry(jsonMac, "", "", "");
-    Serial.printf("ESP-NOW Current: %.2f A from %s\n", amps, jsonMac.c_str());
+    updateStationRegistry(macStr, "", "", "");
+    Serial.printf("ESP-NOW Current: %.2f A from %s\n", amps, macStr.c_str());
   }
 }
 
