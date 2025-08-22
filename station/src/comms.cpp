@@ -17,6 +17,16 @@ void CommsClass::begin() {
     return;
   }
   esp_now_register_recv_cb(onReceive);
+  bool unset = true;
+  for (int i = 0; i < 6; ++i) {
+    if (baseMac[i] != 0) {
+      unset = false;
+      break;
+    }
+  }
+  if (unset) {
+    return;
+  }
 
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, baseMac, 6);
@@ -68,7 +78,16 @@ void CommsClass::onReceive(const uint8_t *mac, const uint8_t *data, int len) {
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     configUI.setBaseMac(String(buf));
     configUI.saveConfig();
-  }
+  
+    esp_now_peer_info_t peerInfo = {};
+    memcpy(peerInfo.peer_addr, mac, 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+    esp_err_t addStatus = esp_now_add_peer(&peerInfo);
+    if (addStatus != ESP_OK) {
+      Serial.printf("ESP-NOW: add_peer failed (%d)\n", addStatus);
+    }
+}
 
   // Ignore packets not originating from the base
   if (memcmp(mac, comms.baseMac, 6) != 0) {
@@ -137,9 +156,19 @@ bool registerWithBaseNow() {
 }
 
 void CommsClass::sendToBase(const uint8_t *data, size_t len) {
-  if (esp_now_send(baseMac, data, len) == ESP_OK) {
-    Serial.println("ESP-NOW: sent registration to base");
+  bool unset = true;
+  for (int i = 0; i < 6; ++i) {
+    if (baseMac[i] != 0) {
+      unset = false;
+      break;
+    }
+  }
+  const uint8_t *dest = unset ? NULL : baseMac;
+
+  if (esp_now_send(dest, data, len) == ESP_OK) {
+    Serial.println(unset ? "ESP-NOW: broadcast packet" :
+                             "ESP-NOW: sent packet to base");
   } else {
-    Serial.println("ESP-NOW: failed to send registration");
+    Serial.println("ESP-NOW: failed to send packet");
   }
 }
