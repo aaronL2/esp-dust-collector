@@ -5,6 +5,7 @@
 #include <cstring>
 #include <cstdio>
 
+const uint8_t broadcastMac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 CommsClass comms;
 
 // Set when an acknowledgment packet is received from the base
@@ -24,12 +25,8 @@ void CommsClass::begin() {
       break;
     }
   }
-  if (unset) {
-    return;
-  }
-
   esp_now_peer_info_t peerInfo = {};
-  memcpy(peerInfo.peer_addr, baseMac, 6);
+  memcpy(peerInfo.peer_addr, unset ? broadcastMac : baseMac, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
   esp_err_t addStatus = esp_now_add_peer(&peerInfo);
@@ -163,7 +160,7 @@ void CommsClass::sendToBase(const uint8_t *data, size_t len) {
       break;
     }
   }
-  const uint8_t *dest = unset ? NULL : baseMac;
+  const uint8_t *dest = unset ? broadcastMac : baseMac;
 
   if (esp_now_send(dest, data, len) == ESP_OK) {
     Serial.println(unset ? "ESP-NOW: broadcast packet" :
