@@ -200,10 +200,11 @@
       });
     }
 
-    loadStatus();
-    loadRegistry();
-    hookNameForm();
-    hookReboot();
-  </script>
-</body>
-</html>
+      loadStatus();
+      loadRegistry();
+      setInterval(loadRegistry, 5000); // refresh every 5s
+      hookNameForm();
+      hookReboot();
+    </script>
+  </body>
+  </html>

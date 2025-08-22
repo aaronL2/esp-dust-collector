@@ -53,6 +53,9 @@ void updateStationRegistry(const String& mac, const String& name,
   file = SPIFFS.open("/registry.json", "w");
   if (file) {
     serializeJson(doc, file);
+    String debug;
+    serializeJson(doc, debug);
+    Serial.printf("Registry updated: %s\n", debug.c_str());
     file.close();
   }
 }

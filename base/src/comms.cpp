@@ -26,9 +26,9 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
   String jsonMac = doc["mac"] | "";
   String senderMac = macToString(mac);
   String macStr = jsonMac.isEmpty() ? senderMac : jsonMac;
-if (!jsonMac.isEmpty() && jsonMac != senderMac) {
+  if (!jsonMac.isEmpty() && jsonMac != senderMac) {
     Serial.printf("ESP-NOW: sender MAC %s doesn't match payload %s\n",
-                  senderMac.c_str(), jsonMac.c_str());
+                  senderMac.c_str(), macStr.c_str());
     return;
   }
 
