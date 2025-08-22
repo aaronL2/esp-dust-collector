@@ -5,7 +5,7 @@
 #include <ArduinoJson.h>
 
 void updateStationRegistry(const String& mac, const String& name,
-                           const String& version, const String& timestamp) {
+                           const String& fw, const String& timestamp) {
   JsonDocument doc;
   File file = SPIFFS.open("/registry.json", "r");
   if (file) {
@@ -32,10 +32,16 @@ void updateStationRegistry(const String& mac, const String& name,
     target["name"] = "";
   }
 
-  if (!version.isEmpty()) {
-    target["version"] = version;
-  } else if (!target.containsKey("version")) {
-    target["version"] = "";
+  if (!fw.isEmpty()) {
+    target["fw"] = fw;
+    target["version"] = fw;
+  } else {
+    if (!target.containsKey("fw")) {
+      target["fw"] = "";
+    }
+    if (!target.containsKey("version")) {
+      target["version"] = "";
+    }
   }
 
   if (!timestamp.isEmpty()) {

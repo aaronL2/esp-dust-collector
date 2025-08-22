@@ -4,6 +4,7 @@
 #include <config_ui.h>
 #include <cstring>
 #include <cstdio>
+#include "version.h"
 
 const uint8_t broadcastMac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 CommsClass comms;
@@ -119,7 +120,8 @@ bool registerWithBaseNow() {
   doc["type"] = "register";
   doc["name"] = configUI.getFriendlyName();
   doc["mac"] = WiFi.macAddress();
-  doc["version"] = "1.0.0"; // change to match your firmware version
+  doc["version"] = Version::firmware();
+  doc["fw"] = Version::firmware();
   doc["timestamp"] = String(millis() / 1000);
   String token = String(micros());
   doc["token"] = token;

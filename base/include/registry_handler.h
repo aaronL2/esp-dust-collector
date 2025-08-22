@@ -4,5 +4,5 @@
 
 void setupRegistryRoutes(AsyncWebServer& server);
 void updateStationRegistry(const String& mac, const String& name,
-                           const String& version = "",
+                           const String& fw = "",
                            const String& timestamp = "");

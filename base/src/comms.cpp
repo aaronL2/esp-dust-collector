@@ -33,10 +33,10 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
 
   if (doc["type"] == "register") {
     String name = doc["name"];
-    String version = doc["version"] | "";
+    String fw = doc["fw"] | doc["version"] | "";
     String timestamp = doc["timestamp"] | "";
     String token = doc["token"] | "";
-    updateStationRegistry(jsonMac, name, version, timestamp);
+    updateStationRegistry(jsonMac, name, fw, timestamp);
     Serial.printf("ESP-NOW Register: %s (%s)\n", name.c_str(), jsonMac.c_str());
 
     // Ensure the sender is a known peer so we can respond
