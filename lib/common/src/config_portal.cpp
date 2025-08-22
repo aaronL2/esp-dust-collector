@@ -1,6 +1,7 @@
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
+#include <ESPmDNS.h>
 #include "config_portal.h"
 #include "net_prefs.h"
 //#include "display.h"       // your existing display wrapper
@@ -101,14 +102,26 @@ void startConfigPortal_Blocking() {
     if (!s.length()) { req->send(400, "text/plain", "SSID required"); return; }
 
     NetPrefs::save(s, p);
-    req->send(200, "text/plain", "Saved. Reconnecting...");
     status_show("Joining Wi-Fi…", configUI.getFriendlyName(), "-", "-", String(FW_VERSION));
+
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.begin(s.c_str(), p.c_str());
+
+    if (waitForIP(20000)) {
+      String target = String("http://") + WiFi.localIP().toString() + "/";
+      if (MDNS.isRunning()) {
+        target = String("http://") + configUI.getMdnsName() + ".local/";
+      }
+      String html = String("<!DOCTYPE html><html><head><meta http-equiv='refresh' content='0;url=") + target + "'/></head><body>Redirecting...</body></html>";
+      req->send(200, "text/html", html);
+    } else {
+      req->send(500, "text/plain", "Connection failed");
+    }
 
     dnsServer.stop();
     apServer.end();
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
-    WiFi.begin(s.c_str(), p.c_str());
   });
   apServer.on("/scan", HTTP_GET, [](AsyncWebServerRequest* req){
     if (req->hasParam("refresh")) {
