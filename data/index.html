@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ESP Dust Collector – Base</title>
+  <title>ESP Dust Collector – Station</title>
   <style>
     :root {
       --bg: #0b0c0f;
@@ -46,17 +46,12 @@
     .btn-accent:hover { background: #1c3a75; }
 
     .muted { color: var(--muted); }
-
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #1f2737; }
-    th { color: var(--muted); font-weight: 700; }
-
     .footer { margin-top: 18px; color: var(--muted); font-size: 12px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Dust Collector – Base</h1>
+    <h1>Dust Collector – Station</h1>
 
     <div class="card">
       <div class="section">
@@ -107,23 +102,21 @@
       </div>
 
       <div class="section">
+        <div class="kv">
+          <div class="row">
+            <div class="label">Register</div>
+            <div class="value">
+              <button class="btn" id="registerBtn">Register with Base</button>
+              <span id="regStatus" class="muted" style="margin-left:12px"></span>
+            </div>
+            <div class="actions"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
         <button class="btn" id="rebootBtn">Reboot</button>
         <span id="statusMsg" class="muted" style="margin-left:12px"></span>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <div class="section">
-        <h2 style="margin:0 0 8px; font-size:18px">Registered Stations</h2>
-        <div class="muted" id="stationsHint" style="margin-bottom:10px"></div>
-        <div style="overflow:auto">
-          <table id="stationsTable" aria-label="Registered Stations">
-            <thead>
-              <tr><th>Name</th><th>MAC</th><th>FW</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
       </div>
     </div>
 
@@ -156,22 +149,6 @@
         });
     }
 
-    function loadRegistry() {
-      fetch('/registry.json', { cache: 'no-store' })
-        .then(r => r.json())
-        .then(list => {
-          const tbody = document.querySelector('#stationsTable tbody');
-          tbody.innerHTML = '';
-          (list || []).forEach(entry => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${entry.name || ''}</td><td>${entry.mac || ''}</td><td>${entry.fw || entry.version || ''}</td>`;
-            tbody.appendChild(tr);
-          });
-          $('stationsHint').textContent = list?.length ? `${list.length} station(s)` : 'No stations registered yet.';
-        })
-        .catch(() => { $('stationsHint').textContent = 'Unable to load registry.'; });
-    }
-
     function hookNameForm() {
       $('nameForm').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -190,6 +167,18 @@
       });
     }
 
+    function hookRegister() {
+      $('registerBtn').addEventListener('click', () => {
+        $('regStatus').textContent = 'Registering…';
+        fetch('/register-with-base', { method: 'POST' })
+          .then(async r => {
+            const t = await r.text();
+            $('regStatus').textContent = t || (r.ok ? 'Registered' : 'Registration failed');
+          })
+                    .catch(() => $('regStatus').textContent = 'Error registering');
+      });
+    }
+
     function hookReboot() {
       $('rebootBtn').addEventListener('click', () => {
         if (!confirm('Reboot device now?')) return;
@@ -200,11 +189,10 @@
       });
     }
 
-      loadStatus();
-      loadRegistry();
-      setInterval(loadRegistry, 5000); // refresh every 5s
-      hookNameForm();
-      hookReboot();
-    </script>
-  </body>
-  </html>
+    loadStatus();
+    hookNameForm();
+    hookRegister();
+    hookReboot();
+  </script>
+</body>
+</html>

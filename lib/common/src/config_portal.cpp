@@ -5,6 +5,7 @@
 #include "net_prefs.h"
 //#include "display.h"       // your existing display wrapper
 #include <config_ui.h>
+#include <vector>
 #ifdef __has_include
   #if __has_include("generated/version.h")
     #include "generated/version.h"
@@ -19,6 +20,16 @@
 
 static DNSServer dnsServer;
 static AsyncWebServer apServer(80);
+
+static std::vector<String> scannedSsids;
+
+static void doScan() {
+  int n = WiFi.scanNetworks();
+  scannedSsids.clear();
+  for (int i = 0; i < n; ++i) {
+    scannedSsids.push_back(WiFi.SSID(i));
+  }
+}
 
 static void showApPortalOnOled(const char* ap_ssid) {
   const String title = String("AP: ") + ap_ssid;
@@ -53,14 +64,34 @@ void startConfigPortal_Blocking() {
   IPAddress ip = WiFi.softAPIP();
   dnsServer.start(53, "*", ip);
 
+  // Scan nearby networks for initial SSID list
+  doScan();
+
   // 🔹 New: show AP portal screen on the OLED
   showApPortalOnOled(ap_ssid);
 
   // Minimal portal page & POST to save creds (replace with your UI)
   apServer.on("/", HTTP_GET, [](AsyncWebServerRequest* req){
-    req->send(200, "text/html", "<h1>Config</h1><form method='POST' action='/wifi'>"
-                                "SSID: <input name='s'><br>Pass: <input name='p'><br>"
-                                "<button>Save</button></form>");
+    req->send(200, "text/html", R"HTML(
+      <h1>Config</h1>
+      <form method='POST' action='/wifi'>
+        SSID: <select name='s' id='ssid'></select><br>
+        Pass: <input name='p' type='password'><br>
+        <button>Save</button>
+      </form>
+      <button onclick='rescan()'>Rescan</button>
+      <script>
+        async function load(refresh){
+          const url = refresh ? '/scan?refresh=1' : '/scan';
+          const res = await fetch(url);
+          const list = await res.json();
+          const sel = document.getElementById('ssid');
+          sel.innerHTML = list.map(s => `<option>${s}</option>`).join('');
+        }
+        function rescan(){ load(true); }
+        load();
+      </script>
+    )HTML");
   });
   apServer.on("/wifi", HTTP_POST, [](AsyncWebServerRequest* req){
     auto ps = req->getParam("s", true);
@@ -79,6 +110,33 @@ void startConfigPortal_Blocking() {
     WiFi.mode(WIFI_STA);
     WiFi.begin(s.c_str(), p.c_str());
   });
+  apServer.on("/scan", HTTP_GET, [](AsyncWebServerRequest* req){
+    if (req->hasParam("refresh")) {
+      doScan();
+    }
+    String json = "[";
+    for (size_t i = 0; i < scannedSsids.size(); ++i) {
+      if (i) json += ',';
+      json += '"';
+      json += scannedSsids[i];
+      json += '"';
+    }
+    json += ']';
+    req->send(200, "application/json", json);
+  });
+
+  // Handlers for common captive-portal detection endpoints
+  auto redirectToRoot = [](AsyncWebServerRequest* req){
+    req->redirect("/");
+  };
+  apServer.on("/generate_204", HTTP_GET, redirectToRoot);
+  apServer.on("/hotspot-detect.html", HTTP_GET, redirectToRoot);
+  apServer.on("/ncsi.txt", HTTP_GET, redirectToRoot);
+  apServer.on("/connecttest.txt", HTTP_GET, redirectToRoot);
+  apServer.on("/redirect", HTTP_GET, redirectToRoot);
+  apServer.on("/success.txt", HTTP_GET, redirectToRoot);
+  apServer.on("/kindle-wifi/wifiredirect.html", HTTP_GET, redirectToRoot);
+  apServer.on("/fwlink", HTTP_GET, redirectToRoot);
   apServer.begin();
 
   // Block until STA has a real IP (or user resets)
