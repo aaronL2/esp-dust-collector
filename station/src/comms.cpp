@@ -6,6 +6,8 @@
 #include <cstdio>
 #include "version.h"
 
+extern bool registered;
+
 const uint8_t broadcastMac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 CommsClass comms;
 
@@ -111,6 +113,8 @@ void CommsClass::onReceive(const uint8_t *mac, const uint8_t *data, int len) {
   String token = doc["token"] | "";
   if (type == "ack" && token == pendingToken) {
     registerAck = true;
+  } else if (type == "unregister") {
+    registered = false;
   }
 }
 

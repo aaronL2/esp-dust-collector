@@ -30,7 +30,7 @@ static unsigned long lastOledUpdate = 0;
 static const unsigned long OLED_UPDATE_MS = 10000;
 static unsigned long lastCurrentSend = 0;
 static const unsigned long CURRENT_SEND_MS = 1000;
-static bool registered = false;
+bool registered = false;
 static unsigned long lastRegisterAttempt = 0;
 static const unsigned long REGISTER_RETRY_MS = 10000;
 
@@ -86,7 +86,9 @@ void loop() {
   Serial.printf("Current: %.2f A\n", current);
   now = millis();
   if (now - lastCurrentSend >= CURRENT_SEND_MS) {
-    comms.sendCurrent(current);
+    if (registered) {
+      comms.sendCurrent(current);
+    }
     lastCurrentSend = now;
   }
   ElegantOTA.loop();   // <- required so OTA can trigger reboot

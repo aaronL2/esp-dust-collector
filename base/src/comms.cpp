@@ -13,6 +13,24 @@ static String macToString(const uint8_t* mac) {
   return String(buf);
 }
 
+static bool isRegisteredMac(const String& macStr) {
+  File file = SPIFFS.open("/registry.json", "r");
+  if (!file) return false;
+
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, file);
+  file.close();
+  if (err) return false;
+
+  for (JsonObject obj : doc.as<JsonArray>()) {
+    if (macStr == obj["mac"].as<String>()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
   //StaticJsonDocument<256> doc;
   JsonDocument doc;

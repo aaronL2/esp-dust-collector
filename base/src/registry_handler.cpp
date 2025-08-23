@@ -3,6 +3,9 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
+#include <esp_now.h>
+#include <esp_err.h>
+#include <cstdio>
 
 void updateStationRegistry(const String& mac, const String& name,
                            const String& fw, const String& timestamp) {
@@ -151,11 +154,29 @@ void setupRegistryRoutes(AsyncWebServer& server) {
     }
 
     JsonArray arr = doc.to<JsonArray>();
+    bool removed = false;
     for (JsonArray::iterator it = arr.begin(); it != arr.end(); ++it) {
       JsonObject obj = *it;
       if (mac == obj["mac"].as<String>()) {
         arr.remove(it);
+        removed = true;
         break;
+      }
+    }
+
+    if (removed) {
+      uint8_t macBytes[6];
+      sscanf(mac.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+             &macBytes[0], &macBytes[1], &macBytes[2],
+             &macBytes[3], &macBytes[4], &macBytes[5]);
+
+      JsonDocument msg;
+      msg["type"] = "unregister";
+      uint8_t buf[32];
+      size_t len = serializeJson(msg, buf);
+      esp_err_t status = esp_now_send(macBytes, buf, len);
+      if (status != ESP_OK) {
+        Serial.printf("ESP-NOW: failed to send unregister (%d)\n", status);
       }
     }
 
