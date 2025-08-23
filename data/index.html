@@ -119,7 +119,7 @@
         <div style="overflow:auto">
           <table id="stationsTable" aria-label="Registered Stations">
             <thead>
-              <tr><th>Name</th><th>MAC</th><th>FW</th></tr>
+              <tr><th>Name</th><th>MAC</th><th>FW</th><th>Actions</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -156,6 +156,13 @@
         });
     }
 
+    function unregisterStation(mac) {
+      if (!confirm('Unregister this station?')) return;
+      fetch('/registry?mac=' + encodeURIComponent(mac), { method: 'DELETE' })
+        .then(() => loadRegistry())
+        .catch(() => alert('Failed to unregister'));
+    }
+
     function loadRegistry() {
       fetch('/registry.json', { cache: 'no-store' })
         .then(r => r.json())
@@ -164,7 +171,9 @@
           tbody.innerHTML = '';
           (list || []).forEach(entry => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${entry.name || ''}</td><td>${entry.mac || ''}</td><td>${entry.fw || entry.version || ''}</td>`;
+            tr.innerHTML = `<td>${entry.name || ''}</td><td>${entry.mac || ''}</td><td>${entry.fw || entry.version || ''}</td><td><button class="btn" data-mac="${entry.mac || ''}">Unregister</button></td>`;
+            const btn = tr.querySelector('button');
+            btn.addEventListener('click', () => unregisterStation(entry.mac || ''));
             tbody.appendChild(tr);
           });
           $('stationsHint').textContent = list?.length ? `${list.length} station(s)` : 'No stations registered yet.';

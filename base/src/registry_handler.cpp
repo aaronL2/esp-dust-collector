@@ -129,6 +129,43 @@ void setupRegistryRoutes(AsyncWebServer& server) {
     resp["success"] = true;
     String out; serializeJson(resp, out);
     request->send(200, "application/json", out);
-  }
+  } 
   );
+
+  server.on("/registry", HTTP_DELETE, [](AsyncWebServerRequest *request) {
+    if (!request->hasParam("mac")) {
+      JsonDocument resp;
+      resp["error"] = "Missing mac";
+      String out; serializeJson(resp, out);
+      request->send(400, "application/json", out);
+      return;
+    }
+
+    String mac = request->getParam("mac")->value();
+
+    JsonDocument doc;
+    File file = SPIFFS.open("/registry.json", "r");
+    if (file) {
+      deserializeJson(doc, file);
+      file.close();
+    }
+
+    JsonArray arr = doc.to<JsonArray>();
+    for (JsonArray::iterator it = arr.begin(); it != arr.end(); ++it) {
+      JsonObject obj = *it;
+      if (mac == obj["mac"].as<String>()) {
+        arr.remove(it);
+        break;
+      }
+    }
+
+    file = SPIFFS.open("/registry.json", "w");
+    serializeJson(doc, file);
+    file.close();
+
+    JsonDocument resp;
+    resp["success"] = true;
+    String out; serializeJson(resp, out);
+    request->send(200, "application/json", out);
+  });
 }

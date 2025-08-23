@@ -16,3 +16,5 @@ public:
 
 extern ConfigUI& configUI;
 
+// Tracks whether mDNS was started successfully for redirect logic
+extern bool mdnsStarted;

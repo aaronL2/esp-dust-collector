@@ -17,6 +17,7 @@ public:
   void begin(AsyncWebServer& server) override {
     if (MDNS.begin(getMdnsName().c_str())) {
       Serial.printf("mDNS: http://%s.local\n", getMdnsName().c_str());
+      mdnsStarted = true;
     } else {
       Serial.println("mDNS start failed");
     }

@@ -22,6 +22,9 @@
 static DNSServer dnsServer;
 static AsyncWebServer apServer(80);
 
+// Global flag indicating if mDNS has been started successfully
+bool mdnsStarted = false;
+
 static std::vector<String> scannedSsids;
 
 static void doScan() {
@@ -109,7 +112,7 @@ void startConfigPortal_Blocking() {
 
     if (waitForIP(20000)) {
       String target = String("http://") + WiFi.localIP().toString() + "/";
-      if (MDNS.isRunning()) {
+      if (mdnsStarted) {
         target = String("http://") + configUI.getMdnsName() + ".local/";
       }
       String html = String("<!DOCTYPE html><html><head><meta http-equiv='refresh' content='0;url=") + target + "'/></head><body>Redirecting...</body></html>";

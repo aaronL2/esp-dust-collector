@@ -59,6 +59,7 @@ void setup() {
 
   if (MDNS.begin(configUI.getMdnsName().c_str())) {
     Serial.println(String("http://") + configUI.getMdnsName() + ".local");
+    mdnsStarted = true;
   }
   
   comms_setup();
