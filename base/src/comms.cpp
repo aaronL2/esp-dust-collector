@@ -86,11 +86,15 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
       Serial.printf("ESP-NOW: failed to send ack (%d)\n", sendStatus);
     }
   } else if (doc["type"] == "ping") {
-    updateStationRegistry(macStr, "", "", "");
+    if (!isRegisteredMac(macStr)) {
+      return;
+    }
     Serial.printf("ESP-NOW Ping: %s\n", macStr.c_str());
   } else if (doc["type"] == "current") {
-    float amps = doc["amps"] | 0.0f;
-    updateStationRegistry(macStr, "", "", "");
+    if (!isRegisteredMac(macStr)) {
+      return;
+    }
+     float amps = doc["amps"] | 0.0f;
     Serial.printf("ESP-NOW Current: %.2f A from %s\n", amps, macStr.c_str());
   }
 }
