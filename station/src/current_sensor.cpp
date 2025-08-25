@@ -11,19 +11,25 @@ void CurrentSensorClass::begin() {
 }
 
 float CurrentSensorClass::read() {
-  const int samples = 10;
-  long total = 0;
-  for (int i = 0; i < samples; ++i) {
-    total += analogRead(sensorPin);
+  unsigned long start = millis();
+  double sum = 0.0;
+  int count = 0;
+  while (millis() - start < static_cast<unsigned long>(sampleWindowMs)) {
+    float raw = analogRead(sensorPin);
+    float diff = raw - zeroOffset;
+    sum += diff * diff;
+    ++count;
   }
-  float raw = total / static_cast<float>(samples);
-  float voltage = (raw - zeroOffset) * (3.3 / 4095.0);  // Remove midpoint bias
-  float amps = voltage * calibration;
-  const float noiseThreshold = 0.05;  // Ignore small noise readings
-  if (abs(amps) < noiseThreshold) {
-    return 0.0;
+  if (count == 0) {
+    return rms;  // Avoid division by zero
   }
-  return amps;
+  float newRms = sqrt(sum / count) * (3.3f / 4095.0f) * calibration;
+  rms = 0.8f * rms + 0.2f * newRms;
+  const float noiseThreshold = 0.05f;  // Ignore small noise readings
+  if (abs(rms) < noiseThreshold) {
+    return 0.0f;
+  }
+  return rms;
 }
 
 void CurrentSensorClass::recalibrate() {
