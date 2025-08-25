@@ -2,8 +2,8 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 
-// Compact 5-line OLED status view (128x64):
-// Name, mDNS, IP, MAC, FW
+// Compact OLED status view (128x64):
+// Name, mDNS, IP, MAC, FW, optional current
 class DisplayStatus {
 public:
   explicit DisplayStatus(U8G2& u8) : u8g2(u8) {}
@@ -18,9 +18,12 @@ public:
             const String& mdns,
             const String& ip,
             const String& mac,
-            const String& fw) {
-    if (name == lastName && mdns == lastMdns && ip == lastIp && mac == lastMac && fw == lastFw) return;
+            const String& fw,
+            const String& amps = "") {
+    if (name == lastName && mdns == lastMdns && ip == lastIp && mac == lastMac &&
+        fw == lastFw && amps == lastAmps) return;
     lastName = name; lastMdns = mdns; lastIp = ip; lastMac = mac; lastFw = fw;
+    lastAmps = amps;
 
     const uint8_t W = 128, padX = 2, padY = 2, lh = 10; // ~8px font + spacing
     const uint8_t maxW = W - 2*padX;
@@ -32,13 +35,17 @@ public:
       u8g2.setCursor(padX, y); u8g2.print(fit("mDNS: " + mdns, maxW)); y += lh;
       u8g2.setCursor(padX, y); u8g2.print(fit("IP: "   + ip,   maxW)); y += lh;
       u8g2.setCursor(padX, y); u8g2.print(fit("MAC: "  + mac,  maxW)); y += lh;
-      u8g2.setCursor(padX, y); u8g2.print(fit("FW: "   + fw,   maxW));
+      u8g2.setCursor(padX, y); u8g2.print(fit("FW: "   + fw,   maxW)); y += lh;
+      if (!amps.isEmpty()) {
+        u8g2.setCursor(padX, y);
+        u8g2.print(fit("I: " + amps + "A", maxW));
+      }
     } while (u8g2.nextPage());
   }
 
 private:
   U8G2& u8g2;
-  String lastName, lastMdns, lastIp, lastMac, lastFw;
+  String lastName, lastMdns, lastIp, lastMac, lastFw, lastAmps;
 
   String fit(const String& s, uint8_t maxPx) {
     if (u8g2.getStrWidth(s.c_str()) <= maxPx) return s;
@@ -59,4 +66,5 @@ void status_show(const String& l1,
                  const String& l2,
                  const String& l3,
                  const String& l4,
-                 const String& l5);
+                 const String& l5,
+                 const String& l6 = "");

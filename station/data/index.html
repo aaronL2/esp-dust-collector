@@ -83,6 +83,11 @@
               <a class="btn btn-accent" href="/update">Update FW</a>
             </div>
           </div>
+          <div class="row">
+            <div class="label">Current</div>
+            <div class="value" id="amps">…</div>
+            <div class="actions"></div>
+          </div>
         </div>
       </div>
 
@@ -135,6 +140,7 @@
           $('mdns').textContent = d.mdns || '';
           $('mac').textContent = d.mac || '';
           $('fw').textContent = d.fw || '';
+          $('amps').textContent = (d.amps !== undefined ? (Number(d.amps).toFixed(2) + ' A') : '');
         })
         .catch(() => {
           fetch('/info', { cache: 'no-store' })
@@ -145,6 +151,7 @@
               $('mdns').textContent = d.mdns || '';
               $('mac').textContent = d.mac || '';
               $('fw').textContent = '(unknown)';
+              $('amps').textContent = '(unknown)';
             });
         });
     }
@@ -190,6 +197,7 @@
     }
 
     loadStatus();
+    setInterval(loadStatus, 1000);
     hookNameForm();
     hookRegister();
     hookReboot();

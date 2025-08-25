@@ -11,6 +11,7 @@
 #include "comms.h"
 #include "ota.h"
 #include "version.h"
+#include "current_sensor.h"
 
 class StationConfigUI : public ConfigUI {
 public:
@@ -33,6 +34,7 @@ public:
       doc["ip"]   = WiFi.localIP().toString();
       doc["mdns"] = configUI.getMdnsName() + ".local";
       doc["fw"]   = Version::firmware();
+      doc["amps"] = CurrentSensor.read();
       String out; serializeJson(doc, out);
       req->send(200, "application/json", out);
     });

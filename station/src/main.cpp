@@ -27,12 +27,13 @@ AsyncWebServer server(80);
 static DisplayStatus status(display.getU8g2());
 
 static unsigned long lastOledUpdate = 0;
-static const unsigned long OLED_UPDATE_MS = 10000;
+static const unsigned long OLED_UPDATE_MS = 1000;
 static unsigned long lastCurrentSend = 0;
 static const unsigned long CURRENT_SEND_MS = 1000;
 bool registered = false;
 static unsigned long lastRegisterAttempt = 0;
 static const unsigned long REGISTER_RETRY_MS = 10000;
+static float lastCurrentReading = 0;
 
 static void updateOled() {
   const String name = configUI.getFriendlyName();
@@ -40,7 +41,7 @@ static void updateOled() {
   const String ip   = WiFi.isConnected() ? WiFi.localIP().toString() : "-";
   const String mac  = WiFi.macAddress();
   const String fw   = String(FW_VERSION);
-  status.show(name, mdns, ip, mac, fw);
+  status.show(name, mdns, ip, mac, fw, String(lastCurrentReading, 2));
 }
 
 void setup() {
@@ -83,6 +84,7 @@ void loop() {
 
   // Read and print current
   float current = CurrentSensor.read();
+  lastCurrentReading = current;
   Serial.printf("Current: %.2f A\n", current);
   now = millis();
   if (now - lastCurrentSend >= CURRENT_SEND_MS) {

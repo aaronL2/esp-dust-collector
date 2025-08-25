@@ -16,6 +16,7 @@ void status_show(const String& l1,
                  const String& l2,
                  const String& l3,
                  const String& l4,
-                 const String& l5) {
-  if (gStatus) gStatus->show(l1, l2, l3, l4, l5);
+                 const String& l5,
+                 const String& l6) {
+  if (gStatus) gStatus->show(l1, l2, l3, l4, l5, l6);
 }
