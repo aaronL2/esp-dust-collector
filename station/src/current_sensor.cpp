@@ -11,32 +11,55 @@ void CurrentSensorClass::begin() {
 }
 
 float CurrentSensorClass::read() {
+  const unsigned long sampleWindowMs = 200;
   unsigned long start = millis();
-  double sum = 0.0;
-  int count = 0;
-  while (millis() - start < static_cast<unsigned long>(sampleWindowMs)) {
-    float raw = analogRead(sensorPin);
-    float diff = raw - zeroOffset;
-    sum += diff * diff;
+  float sumSquares = 0.0f;
+  uint16_t count = 0;
+  while (millis() - start < sampleWindowMs) {
+    float raw = analogRead(sensorPin) - zeroOffset;
+    sumSquares += raw * raw;
     ++count;
   }
-  if (count == 0) {
-    return rms;  // Avoid division by zero
+  float newRms = 0.0f;
+  if (count > 0) {
+    newRms = sqrt(sumSquares / count) * (3.3f / 4095.0f) * calibration;
   }
-  float newRms = sqrt(sum / count) * (3.3f / 4095.0f) * calibration;
-  rms = 0.8f * rms + 0.2f * newRms;
+  newRms = max(newRms - baselineRms, 0.0f);
+
+  const float alpha = 0.1f;
+  static float filteredRms = 0.0f;
+  filteredRms = alpha * newRms + (1.0f - alpha) * filteredRms;
+
   const float noiseThreshold = 0.05f;  // Ignore small noise readings
-  if (abs(rms) < noiseThreshold) {
+  if (filteredRms < noiseThreshold) {
     return 0.0f;
   }
-  return rms;
+  return filteredRms;
 }
 
 void CurrentSensorClass::recalibrate() {
-  const int samples = 100;
-  long total = 0;
-  for (int i = 0; i < samples; ++i) {
-    total += analogRead(sensorPin);
+  const unsigned long sampleWindowMs = 200;
+  unsigned long start = millis();
+  double sum = 0.0;
+  double sumSquares = 0.0;
+  uint16_t count = 0;
+  while (millis() - start < sampleWindowMs) {
+    float raw = analogRead(sensorPin);
+    sum += raw;
+    sumSquares += raw * raw;
+    ++count;
   }
-  zeroOffset = total / static_cast<float>(samples);
+  if (count > 0) {
+    zeroOffset = sum / count;
+    double meanSq = sumSquares / count;
+    double variance = meanSq - (zeroOffset * zeroOffset);
+    if (variance < 0) {
+      variance = 0;
+    }
+    double rms = sqrt(variance);
+    double voltage = rms * (3.3 / 4095.0);
+    baselineRms = voltage * calibration;
+  } else {
+    baselineRms = 0.0f;
+  }
 }

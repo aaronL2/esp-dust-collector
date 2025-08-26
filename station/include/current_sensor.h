@@ -13,6 +13,7 @@ private:
   float zeroOffset = 2048.0;
   int sampleWindowMs = 200;       // Sampling window in milliseconds
   float rms = 0.0f;               // Filtered RMS current
+  float baselineRms = 0.0f;
 };
 
 extern CurrentSensorClass CurrentSensor;
