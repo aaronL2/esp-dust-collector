@@ -100,5 +100,5 @@ void loop() {
    updateOled();
   }
 
-  delay(1000); // optional throttle
+  delay(100); // optional throttle
 }

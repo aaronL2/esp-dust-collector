@@ -121,7 +121,7 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
     if (pendingState != relayActive &&
         now - stateChangeTime >= kDebounceMs) {
       relayActive = pendingState;
-      digitalWrite(RELAY_PIN, relayActive ? HIGH : LOW);
+      digitalWrite(RELAY_PIN, relayActive ? RELAY_ON_LEVEL : !RELAY_ON_LEVEL);
       uint8_t state = relayActive ? 1 : 0;
       esp_now_send(pendingMac, &state, 1);
     }

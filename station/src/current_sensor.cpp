@@ -26,15 +26,11 @@ float CurrentSensorClass::read() {
   }
   newRms = max(newRms - baselineRms, 0.0f);
 
-  const float alpha = 0.1f;
-  static float filteredRms = 0.0f;
-  filteredRms = alpha * newRms + (1.0f - alpha) * filteredRms;
-
   const float noiseThreshold = 0.05f;  // Ignore small noise readings
-  if (filteredRms < noiseThreshold) {
+  if (newRms < noiseThreshold) {
     return 0.0f;
   }
-  return filteredRms;
+  return newRms;
 }
 
 void CurrentSensorClass::recalibrate() {

@@ -48,7 +48,7 @@ void setup() {
   display.begin();
   status.begin();
   pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW);  // ensure relay is off
+  digitalWrite(RELAY_PIN, !RELAY_ON_LEVEL);  // ensure relay is off
   setupWiFi();
   Serial.println("\nBooting Base...");
 
