@@ -15,6 +15,7 @@
 #include "ota.h"
 #include "wifi_manager.h"
 #include "comms.h"
+#include "pins.h"
 
 // Fallback so builds still succeed even if the pre-build script didn't run
 #ifndef FW_VERSION
@@ -28,6 +29,9 @@ static DisplayStatus status(display.getU8g2());
 
 static unsigned long lastOledUpdate = 0;
 static const unsigned long OLED_UPDATE_MS = 10000;
+
+// Definition of the GPIO pin controlling the dust collector relay
+extern const uint8_t RELAY_PIN = 23;
 
 static void updateOled() {
   const String name = configUI.getFriendlyName();
@@ -43,6 +47,8 @@ void setup() {
   delay(1000);
   display.begin();
   status.begin();
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW);  // ensure relay is off
   setupWiFi();
   Serial.println("\nBooting Base...");
 
@@ -61,7 +67,7 @@ void setup() {
     Serial.println(String("http://") + configUI.getMdnsName() + ".local");
     mdnsStarted = true;
   }
-  
+
   comms_setup();
 
   updateOled();

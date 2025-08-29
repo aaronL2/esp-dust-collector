@@ -1,10 +1,13 @@
 #include "comms.h"
 #include "registry_handler.h"
+#include <Arduino.h>
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include <SPIFFS.h>
 #include <esp_err.h>
+#include <config_ui.h>
+#include "pins.h"
 
 static String macToString(const uint8_t* mac) {
   char buf[18];
@@ -30,6 +33,9 @@ static bool isRegisteredMac(const String& macStr) {
 
   return false;
 }
+
+// Tracks whether the dust collector relay is currently active
+static bool relayActive = false;
 
 void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
   //StaticJsonDocument<256> doc;
@@ -94,8 +100,25 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
     if (!isRegisteredMac(macStr)) {
       return;
     }
-     float amps = doc["amps"] | 0.0f;
+    float amps = doc["amps"] | 0.0f;
+    float threshold = configUI.getCurrentThreshold();
     Serial.printf("ESP-NOW Current: %.2f A from %s\n", amps, macStr.c_str());
+
+    if (amps >= threshold) {
+      if (!relayActive) {
+        relayActive = true;
+        digitalWrite(RELAY_PIN, HIGH);  // energize relay
+        uint8_t one = 1;
+        esp_now_send(mac, &one, 1);     // instruct station to open gate
+      }
+    } else {
+      if (relayActive) {
+        relayActive = false;
+        digitalWrite(RELAY_PIN, LOW);   // release relay
+        uint8_t zero = 0;
+        esp_now_send(mac, &zero, 1);    // instruct station to close gate
+      }
+    }
   }
 }
 
