@@ -36,6 +36,11 @@ static bool isRegisteredMac(const String& macStr) {
 
 // Tracks whether the dust collector relay is currently active
 static bool relayActive = false;
+static bool pendingState = false;
+static unsigned long stateChangeTime = 0;
+static uint8_t pendingMac[6] = {0};
+
+constexpr unsigned long kDebounceMs = 750;  // relay debounce period in ms
 
 void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
   //StaticJsonDocument<256> doc;
@@ -101,23 +106,24 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
       return;
     }
     float amps = doc["amps"] | 0.0f;
-    float threshold = configUI.getCurrentThreshold();
+    float threshold = configUI.getToolOnThreshold();
     Serial.printf("ESP-NOW Current: %.2f A from %s\n", amps, macStr.c_str());
 
-    if (amps >= threshold) {
-      if (!relayActive) {
-        relayActive = true;
-        digitalWrite(RELAY_PIN, HIGH);  // energize relay
-        uint8_t one = 1;
-        esp_now_send(mac, &one, 1);     // instruct station to open gate
-      }
-    } else {
-      if (relayActive) {
-        relayActive = false;
-        digitalWrite(RELAY_PIN, LOW);   // release relay
-        uint8_t zero = 0;
-        esp_now_send(mac, &zero, 1);    // instruct station to close gate
-      }
+    bool above = amps >= threshold;
+    unsigned long now = millis();
+
+    if (above != pendingState) {
+      pendingState = above;
+      stateChangeTime = now;
+      memcpy(pendingMac, mac, 6);
+    }
+
+    if (pendingState != relayActive &&
+        now - stateChangeTime >= kDebounceMs) {
+      relayActive = pendingState;
+      digitalWrite(RELAY_PIN, relayActive ? HIGH : LOW);
+      uint8_t state = relayActive ? 1 : 0;
+      esp_now_send(pendingMac, &state, 1);
     }
   }
 }

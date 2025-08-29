@@ -13,12 +13,12 @@ public:
   virtual String getBaseMac() const = 0;
   virtual String getMdnsName() const = 0;
 
-  // Allow implementations to expose a current activation threshold
-  // used by the base to decide when to enable the dust collector relay.
-  // Default implementations provide a disabled threshold of 0.0f so
-  // existing code that doesn't care about this value can ignore it.
-  virtual float getCurrentThreshold() const { return 0.0f; }
-  virtual void setCurrentThreshold(float) {}
+  // Allow implementations to expose a tool-on current threshold used by the
+  // base to decide when to enable the dust collector relay. Default
+  // implementations provide a disabled threshold of 0.0f so existing code that
+  // doesn't care about this value can ignore it.
+  virtual float getToolOnThreshold() const { return 0.0f; }
+  virtual void setToolOnThreshold(float) {}
 };
 
 extern ConfigUI& configUI;

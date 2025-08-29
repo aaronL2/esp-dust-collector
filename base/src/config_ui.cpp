@@ -6,21 +6,21 @@
 class BaseConfigUI : public ConfigUI {
 public:
   void begin(AsyncWebServer& server) override {
-    // Endpoint to update the current-activation threshold. Expects a JSON
-    // body of the form {"threshold": <float>} and persists the value to
+    // Endpoint to update the tool-on current threshold. Expects a JSON body of
+    // the form {"tool_on_threshold": <float>} and persists the value to
     // config.json so it can be tuned at runtime.
-    server.on("/set-threshold", HTTP_POST,
+    server.on("/set-tool-on-threshold", HTTP_POST,
       [](AsyncWebServerRequest* /*req*/){},
       nullptr,
       [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
         JsonDocument body;
         DeserializationError err = deserializeJson(body, data, len);
-        if (err || !body["threshold"].is<float>()) {
+        if (err || !body["tool_on_threshold"].is<float>()) {
           req->send(400, "text/plain", "Invalid threshold");
           return;
         }
         auto& self = static_cast<BaseConfigUI&>(configUI);
-        self.setCurrentThreshold(body["threshold"].as<float>());
+        self.setToolOnThreshold(body["tool_on_threshold"].as<float>());
         self.saveConfig();
         req->send(200, "text/plain", "OK");
       });
@@ -58,10 +58,11 @@ public:
 
   void setBaseMac(const String& mac) override { config["base_mac"] = mac; }
 
-    float getCurrentThreshold() const override {
-    return config["threshold"] | 5.0f; // default of 5 amps
+  float getToolOnThreshold() const override {
+    // Support legacy configs where the field was named "threshold".
+    return config["tool_on_threshold"] | config["threshold"] | 5.0f; // default of 5 amps
   }
-  void setCurrentThreshold(float t) override { config["threshold"] = t; }
+  void setToolOnThreshold(float t) override { config["tool_on_threshold"] = t; }
 
   void setWifiSSID(const String& ssid) { config["wifi_ssid"] = ssid; }
   void setWifiPassword(const String& pass) { config["wifi_password"] = pass; }
