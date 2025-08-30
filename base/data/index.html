@@ -107,6 +107,20 @@
       </div>
 
       <div class="section">
+        <form id="offDelayForm" class="kv" autocomplete="off">
+          <div class="row">
+            <div class="label">Off delay (s)</div>
+            <div class="value">
+              <input id="offDelay" type="number" step="0.1" min="0" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #2b3042; background:#0c1018; color:var(--fg);" />
+            </div>
+            <div class="actions">
+              <button class="btn" type="submit">Save</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="section">
         <button class="btn" id="rebootBtn">Reboot</button>
         <span id="statusMsg" class="muted" style="margin-left:12px"></span>
       </div>
@@ -142,6 +156,7 @@
           $('mdns').textContent = d.mdns || '';
           $('mac').textContent = d.mac || '';
           $('fw').textContent = d.fw || '';
+          $('offDelay').value = (typeof d.off_delay === 'number') ? d.off_delay : 0;
         })
         .catch(() => {
           fetch('/info', { cache: 'no-store' })
@@ -196,6 +211,20 @@
           setTimeout(() => { window.location.href = d.newMdns || '/'; }, 3500);
         })
         .catch(() => $('statusMsg').textContent = 'Error saving name');
+      });
+    }
+
+    function hookOffDelayForm() {
+      $('offDelayForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const d = parseFloat($('offDelay').value);
+        if (isNaN(d)) return;
+        fetch('/set-off-delay', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ collector_off_delay: d })
+        })
+        .then(() => loadStatus())
+        .catch(() => alert('Error saving delay'));
       });
     }
 

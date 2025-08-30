@@ -19,6 +19,11 @@ public:
   // doesn't care about this value can ignore it.
   virtual float getToolOnThreshold() const { return 0.0f; }
   virtual void setToolOnThreshold(float) {}
+
+  // Allow implementations to expose a delay before turning the collector off.
+  // Defaults to 0.0f so code that doesn't care can ignore it.
+  virtual float getCollectorOffDelay() const { return 0.0f; }
+  virtual void setCollectorOffDelay(float) {}
 };
 
 extern ConfigUI& configUI;

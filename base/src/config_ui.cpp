@@ -24,6 +24,25 @@ public:
         self.saveConfig();
         req->send(200, "text/plain", "OK");
       });
+
+    // Endpoint to update the collector off delay. Expects a JSON body of the
+    // form {"collector_off_delay": <float>} and persists the value so the
+    // relay can wait before turning off.
+    server.on("/set-off-delay", HTTP_POST,
+      [](AsyncWebServerRequest* /*req*/){},
+      nullptr,
+      [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
+        JsonDocument body;
+        DeserializationError err = deserializeJson(body, data, len);
+        if (err || !body["collector_off_delay"].is<float>()) {
+          req->send(400, "text/plain", "Invalid delay");
+          return;
+        }
+        auto& self = static_cast<BaseConfigUI&>(configUI);
+        self.setCollectorOffDelay(body["collector_off_delay"].as<float>());
+        self.saveConfig();
+        req->send(200, "text/plain", "OK");
+      });
   }
 
   void loadConfig() override {
@@ -63,6 +82,11 @@ public:
     return config["tool_on_threshold"] | config["threshold"] | 1.0f; // default of 5 amps
   }
   void setToolOnThreshold(float t) override { config["tool_on_threshold"] = t; }
+
+  float getCollectorOffDelay() const override {
+    return config["collector_off_delay"] | 0.0f;
+  }
+  void setCollectorOffDelay(float d) override { config["collector_off_delay"] = d; }
 
   void setWifiSSID(const String& ssid) { config["wifi_ssid"] = ssid; }
   void setWifiPassword(const String& pass) { config["wifi_password"] = pass; }

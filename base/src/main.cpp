@@ -103,6 +103,7 @@ void setup() {
     doc["mac"]    = WiFi.macAddress();
     doc["role"]   = "base";
     doc["uptime"] = (uint32_t)(millis() / 1000);
+    doc["off_delay"] = configUI.getCollectorOffDelay();
     String json;
     serializeJson(doc, json);
     request->send(200, "application/json", json);

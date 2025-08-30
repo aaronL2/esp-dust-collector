@@ -118,8 +118,9 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
       memcpy(pendingMac, mac, 6);
     }
 
-    if (pendingState != relayActive &&
-        now - stateChangeTime >= kDebounceMs) {
+    unsigned long delayMs = pendingState ? kDebounceMs
+                                         : (unsigned long)(configUI.getCollectorOffDelay() * 1000);
+    if (pendingState != relayActive && now - stateChangeTime >= delayMs) {
       relayActive = pendingState;
       digitalWrite(RELAY_PIN, relayActive ? RELAY_ON_LEVEL : !RELAY_ON_LEVEL);
       uint8_t state = relayActive ? 1 : 0;

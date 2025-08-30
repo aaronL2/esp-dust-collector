@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ESP Dust Collector – Station</title>
+  <title>ESP Dust Collector – Base</title>
   <style>
     :root {
       --bg: #0b0c0f;
@@ -46,12 +46,17 @@
     .btn-accent:hover { background: #1c3a75; }
 
     .muted { color: var(--muted); }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #1f2737; }
+    th { color: var(--muted); font-weight: 700; }
+
     .footer { margin-top: 18px; color: var(--muted); font-size: 12px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Dust Collector – Station</h1>
+    <h1>Dust Collector – Base</h1>
 
     <div class="card">
       <div class="section">
@@ -83,11 +88,6 @@
               <a class="btn btn-accent" href="/update">Update FW</a>
             </div>
           </div>
-          <div class="row">
-            <div class="label">Current</div>
-            <div class="value" id="amps">…</div>
-            <div class="actions"></div>
-          </div>
         </div>
       </div>
 
@@ -107,21 +107,37 @@
       </div>
 
       <div class="section">
-        <div class="kv">
+        <form id="offDelayForm" class="kv" autocomplete="off">
           <div class="row">
-            <div class="label">Register</div>
+            <div class="label">Off delay (s)</div>
             <div class="value">
-              <button class="btn" id="registerBtn">Register with Base</button>
-              <span id="regStatus" class="muted" style="margin-left:12px"></span>
+              <input id="offDelay" type="number" step="0.1" min="0" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #2b3042; background:#0c1018; color:var(--fg);" />
             </div>
-            <div class="actions"></div>
+            <div class="actions">
+              <button class="btn" type="submit">Save</button>
+            </div>
           </div>
-        </div>
+        </form>
       </div>
 
       <div class="section">
         <button class="btn" id="rebootBtn">Reboot</button>
         <span id="statusMsg" class="muted" style="margin-left:12px"></span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="section">
+        <h2 style="margin:0 0 8px; font-size:18px">Registered Stations</h2>
+        <div class="muted" id="stationsHint" style="margin-bottom:10px"></div>
+        <div style="overflow:auto">
+          <table id="stationsTable" aria-label="Registered Stations">
+            <thead>
+              <tr><th>Name</th><th>MAC</th><th>FW</th><th>Actions</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -140,7 +156,7 @@
           $('mdns').textContent = d.mdns || '';
           $('mac').textContent = d.mac || '';
           $('fw').textContent = d.fw || '';
-          $('amps').textContent = (d.amps !== undefined ? (Number(d.amps).toFixed(2) + ' A') : '');
+          $('offDelay').value = (typeof d.off_delay === 'number') ? d.off_delay : 0;
         })
         .catch(() => {
           fetch('/info', { cache: 'no-store' })
@@ -151,9 +167,33 @@
               $('mdns').textContent = d.mdns || '';
               $('mac').textContent = d.mac || '';
               $('fw').textContent = '(unknown)';
-              $('amps').textContent = '(unknown)';
             });
         });
+    }
+
+    function unregisterStation(mac) {
+      if (!confirm('Unregister this station?')) return;
+      fetch('/registry?mac=' + encodeURIComponent(mac), { method: 'DELETE' })
+        .then(() => loadRegistry())
+        .catch(() => alert('Failed to unregister'));
+    }
+
+    function loadRegistry() {
+      fetch('/registry.json', { cache: 'no-store' })
+        .then(r => r.json())
+        .then(list => {
+          const tbody = document.querySelector('#stationsTable tbody');
+          tbody.innerHTML = '';
+          (list || []).forEach(entry => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${entry.name || ''}</td><td>${entry.mac || ''}</td><td>${entry.fw || entry.version || ''}</td><td><button class="btn" data-mac="${entry.mac || ''}">Unregister</button></td>`;
+            const btn = tr.querySelector('button');
+            btn.addEventListener('click', () => unregisterStation(entry.mac || ''));
+            tbody.appendChild(tr);
+          });
+          $('stationsHint').textContent = list?.length ? `${list.length} station(s)` : 'No stations registered yet.';
+        })
+        .catch(() => { $('stationsHint').textContent = 'Unable to load registry.'; });
     }
 
     function hookNameForm() {
@@ -174,15 +214,17 @@
       });
     }
 
-    function hookRegister() {
-      $('registerBtn').addEventListener('click', () => {
-        $('regStatus').textContent = 'Registering…';
-        fetch('/register-with-base', { method: 'POST' })
-          .then(async r => {
-            const t = await r.text();
-            $('regStatus').textContent = t || (r.ok ? 'Registered' : 'Registration failed');
-          })
-                    .catch(() => $('regStatus').textContent = 'Error registering');
+    function hookOffDelayForm() {
+      $('offDelayForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const d = parseFloat($('offDelay').value);
+        if (isNaN(d)) return;
+        fetch('/set-off-delay', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ collector_off_delay: d })
+        })
+        .then(() => loadStatus())
+        .catch(() => alert('Error saving delay'));
       });
     }
 
@@ -196,11 +238,11 @@
       });
     }
 
-    loadStatus();
-    setInterval(loadStatus, 1000);
-    hookNameForm();
-    hookRegister();
-    hookReboot();
-  </script>
-</body>
-</html>
+      loadStatus();
+      loadRegistry();
+      setInterval(loadRegistry, 5000); // refresh every 5s
+      hookNameForm();
+      hookReboot();
+    </script>
+  </body>
+  </html>
