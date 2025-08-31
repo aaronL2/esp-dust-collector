@@ -34,7 +34,9 @@ public:
       [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t, size_t) {
         JsonDocument body;
         DeserializationError err = deserializeJson(body, data, len);
-        if (err || !body["collector_off_delay"].is<float>()) {
+        if (err ||
+            !(body["collector_off_delay"].is<float>() ||
+              body["collector_off_delay"].is<int>())) {
           req->send(400, "text/plain", "Invalid delay");
           return;
         }
