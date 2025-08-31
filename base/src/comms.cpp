@@ -38,9 +38,20 @@ static bool isRegisteredMac(const String& macStr) {
 static bool relayActive = false;
 static bool pendingState = false;
 static unsigned long stateChangeTime = 0;
+static unsigned long pendingDelay = 0;
 static uint8_t pendingMac[6] = {0};
 
 constexpr unsigned long kDebounceMs = 750;  // relay debounce period in ms
+
+static void processPendingState() {
+  if (pendingState != relayActive &&
+      millis() - stateChangeTime >= pendingDelay) {
+    relayActive = pendingState;
+    digitalWrite(RELAY_PIN, relayActive ? RELAY_ON_LEVEL : !RELAY_ON_LEVEL);
+    uint8_t state = relayActive ? 1 : 0;
+    esp_now_send(pendingMac, &state, 1);
+  }
+}
 
 void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
   //StaticJsonDocument<256> doc;
@@ -110,27 +121,20 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
     Serial.printf("ESP-NOW Current: %.2f A from %s\n", amps, macStr.c_str());
 
     bool above = amps >= threshold;
-    unsigned long now = millis();
 
     if (above == relayActive) {
       pendingState = relayActive;
     } else {
-      unsigned long delayMs =
-          above ? kDebounceMs
-                : (unsigned long)(configUI.getCollectorOffDelay() * 1000);
       if (pendingState == relayActive) {
         pendingState = above;
-        stateChangeTime = now;
+        stateChangeTime = millis();
+        pendingDelay =
+            above ? kDebounceMs
+                   : (unsigned long)(configUI.getCollectorOffDelay() * 1000);
         memcpy(pendingMac, mac, 6);
       }
-      if (pendingState != relayActive && now - stateChangeTime >= delayMs) {
-        relayActive = pendingState;
-        digitalWrite(RELAY_PIN,
-                     relayActive ? RELAY_ON_LEVEL : !RELAY_ON_LEVEL);
-        uint8_t state = relayActive ? 1 : 0;
-        esp_now_send(pendingMac, &state, 1);
-      }
     }
+    processPendingState();
   }
 }
 
@@ -142,4 +146,8 @@ void comms_setup() {
   }
   esp_now_register_recv_cb(onDataRecv);
   Serial.println("ESP-NOW communication initialized (Base)");
+}
+
+void comms_loop() {
+  processPendingState();
 }

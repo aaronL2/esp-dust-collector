@@ -4,3 +4,4 @@
 #include <WiFi.h>
 
 void comms_setup();
+void comms_loop();

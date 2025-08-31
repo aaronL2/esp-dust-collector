@@ -116,10 +116,11 @@ void setup() {
 
 void loop() {
   ElegantOTA.loop();   // <- required so OTA can trigger reboot
+  comms_loop();
 
   if (millis() - lastOledUpdate >= OLED_UPDATE_MS) {
-  lastOledUpdate = millis();
-  updateOled();
-}
+    lastOledUpdate = millis();
+    updateOled();
+  }
 
 }
