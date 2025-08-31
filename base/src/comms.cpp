@@ -75,7 +75,8 @@ static void processPendingStates() {
 
   if (shouldBeActive != relayActive) {
     relayActive = shouldBeActive;
-    digitalWrite(RELAY_PIN, relayActive ? RELAY_ON_LEVEL : !RELAY_ON_LEVEL);
+    digitalWrite(RELAY_PIN,
+                 relayActive ? RELAY_ON_LEVEL : RELAY_OFF_LEVEL);
     uint8_t state = relayActive ? 1 : 0;
     for (const auto &macStr : changed) {
       auto it = stationStates.find(macStr);

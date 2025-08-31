@@ -6,3 +6,6 @@ extern const uint8_t RELAY_PIN;
 
 // Logic level that turns the relay on (set to LOW if your hardware is active-low)
 constexpr uint8_t RELAY_ON_LEVEL = HIGH;
+
+// Logic level that turns the relay off
+constexpr uint8_t RELAY_OFF_LEVEL = RELAY_ON_LEVEL == HIGH ? LOW : HIGH;
