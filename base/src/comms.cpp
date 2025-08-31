@@ -8,6 +8,8 @@
 #include <esp_err.h>
 #include <config_ui.h>
 #include "pins.h"
+#include <map>
+#include <vector>
 
 static String macToString(const uint8_t* mac) {
   char buf[18];
@@ -36,20 +38,51 @@ static bool isRegisteredMac(const String& macStr) {
 
 // Tracks whether the dust collector relay is currently active
 static bool relayActive = false;
-static bool pendingState = false;
-static unsigned long stateChangeTime = 0;
-static unsigned long pendingDelay = 0;
-static uint8_t pendingMac[6] = {0};
+
+struct StationState {
+  float current = 0.0f;
+  bool above = false;
+  bool pendingState = false;
+  unsigned long stateChangeTime = 0;
+  unsigned long pendingDelay = 0;
+  uint8_t mac[6] = {0};
+};
+
+static std::map<String, StationState> stationStates;
 
 constexpr unsigned long kDebounceMs = 750;  // relay debounce period in ms
 
-static void processPendingState() {
-  if (pendingState != relayActive &&
-      millis() - stateChangeTime >= pendingDelay) {
-    relayActive = pendingState;
+static void processPendingStates() {
+  unsigned long now = millis();
+  std::vector<String> changed;
+  for (auto &kv : stationStates) {
+    StationState &s = kv.second;
+    if (s.pendingState != s.above &&
+        now - s.stateChangeTime >= s.pendingDelay) {
+      s.above = s.pendingState;
+      changed.push_back(kv.first);
+    }
+  }
+
+  float maxCurrent = 0.0f;
+  for (const auto &kv : stationStates) {
+    if (kv.second.current > maxCurrent) {
+      maxCurrent = kv.second.current;
+    }
+  }
+  bool shouldBeActive =
+      maxCurrent >= configUI.getToolOnThreshold();
+
+  if (shouldBeActive != relayActive) {
+    relayActive = shouldBeActive;
     digitalWrite(RELAY_PIN, relayActive ? RELAY_ON_LEVEL : !RELAY_ON_LEVEL);
     uint8_t state = relayActive ? 1 : 0;
-    esp_now_send(pendingMac, &state, 1);
+    for (const auto &macStr : changed) {
+      auto it = stationStates.find(macStr);
+      if (it != stationStates.end()) {
+        esp_now_send(it->second.mac, &state, 1);
+      }
+    }
   }
 }
 
@@ -120,21 +153,23 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
     float threshold = configUI.getToolOnThreshold();
     Serial.printf("ESP-NOW Current: %.2f A from %s\n", amps, macStr.c_str());
 
-    bool above = amps >= threshold;
+    bool aboveReading = amps >= threshold;
+    StationState &s = stationStates[macStr];
+    s.current = amps;
+    memcpy(s.mac, mac, 6);
 
-    if (above == relayActive) {
-      pendingState = relayActive;
-    } else {
-      if (pendingState == relayActive) {
-        pendingState = above;
-        stateChangeTime = millis();
-        pendingDelay =
-            above ? kDebounceMs
-                   : (unsigned long)(configUI.getCollectorOffDelay() * 1000);
-        memcpy(pendingMac, mac, 6);
-      }
+    if (aboveReading == s.above) {
+      s.pendingState = s.above;
+    } else if (s.pendingState == s.above) {
+      s.pendingState = aboveReading;
+      s.stateChangeTime = millis();
+      s.pendingDelay =
+          aboveReading
+              ? kDebounceMs
+              : (unsigned long)(configUI.getCollectorOffDelay() * 1000);
     }
-    processPendingState();
+
+    processPendingStates();
   }
 }
 
@@ -149,5 +184,5 @@ void comms_setup() {
 }
 
 void comms_loop() {
-  processPendingState();
+  processPendingStates();
 }
