@@ -112,19 +112,24 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
     bool above = amps >= threshold;
     unsigned long now = millis();
 
-    if (above != pendingState) {
-      pendingState = above;
-      stateChangeTime = now;
-      memcpy(pendingMac, mac, 6);
-    }
-
-    unsigned long delayMs = pendingState ? kDebounceMs
-                                         : (unsigned long)(configUI.getCollectorOffDelay() * 1000);
-    if (pendingState != relayActive && now - stateChangeTime >= delayMs) {
-      relayActive = pendingState;
-      digitalWrite(RELAY_PIN, relayActive ? RELAY_ON_LEVEL : !RELAY_ON_LEVEL);
-      uint8_t state = relayActive ? 1 : 0;
-      esp_now_send(pendingMac, &state, 1);
+    if (above == relayActive) {
+      pendingState = relayActive;
+    } else {
+      unsigned long delayMs =
+          above ? kDebounceMs
+                : (unsigned long)(configUI.getCollectorOffDelay() * 1000);
+      if (pendingState == relayActive) {
+        pendingState = above;
+        stateChangeTime = now;
+        memcpy(pendingMac, mac, 6);
+      }
+      if (pendingState != relayActive && now - stateChangeTime >= delayMs) {
+        relayActive = pendingState;
+        digitalWrite(RELAY_PIN,
+                     relayActive ? RELAY_ON_LEVEL : !RELAY_ON_LEVEL);
+        uint8_t state = relayActive ? 1 : 0;
+        esp_now_send(pendingMac, &state, 1);
+      }
     }
   }
 }
