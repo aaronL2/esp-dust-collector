@@ -61,17 +61,22 @@ static void processPendingStates() {
         now - s.stateChangeTime >= s.pendingDelay) {
       s.above = s.pendingState;
       changed.push_back(kv.first);
+      if (!s.above) {
+        Serial.printf("Off-delay expired for %s\n", kv.first.c_str());
+      }
     }
   }
 
-  float maxCurrent = 0.0f;
+  bool shouldBeActive = false;
   for (const auto &kv : stationStates) {
-    if (kv.second.current > maxCurrent) {
-      maxCurrent = kv.second.current;
+    const StationState &s = kv.second;
+    bool pendingOff = (!s.pendingState &&
+                       (now - s.stateChangeTime < s.pendingDelay));
+    if (s.above || pendingOff) {
+      shouldBeActive = true;
+      break;
     }
   }
-  bool shouldBeActive =
-      maxCurrent >= configUI.getToolOnThreshold();
 
   if (shouldBeActive != relayActive) {
     relayActive = shouldBeActive;
@@ -168,7 +173,11 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
           aboveReading
               ? kDebounceMs
               : (unsigned long)(configUI.getCollectorOffDelay() * 1000);
-    }
+      if (!aboveReading) {
+        Serial.printf(
+            "Station %s below threshold, keeping relay on for %lu ms\n",
+            macStr.c_str(), s.pendingDelay);
+     }
 
     processPendingStates();
   }
