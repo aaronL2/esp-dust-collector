@@ -79,7 +79,7 @@ public:
 
   float getToolOnThreshold() const override {
     // Support legacy configs where the field was named "threshold".
-    return config["tool_on_threshold"] | config["threshold"] | 1.0f; // default of 5 amps
+    return config["tool_on_threshold"] | config["threshold"] | 2.0f; // Threshold in amps
   }
   void setToolOnThreshold(float t) override { config["tool_on_threshold"] = t; }
 
