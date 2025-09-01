@@ -82,6 +82,11 @@
             <div class="actions"></div>
           </div>
           <div class="row">
+            <div class="label">Uptime</div>
+            <div class="value" id="uptime">…</div>
+            <div class="actions"></div>
+          </div>
+          <div class="row">
             <div class="label">FW</div>
             <div class="value"><span id="fw">…</span></div>
             <div class="actions">
@@ -142,8 +147,10 @@
           $('mdns').textContent = d.mdns || '';
           $('mac').textContent = d.mac || '';
           $('fw').textContent = d.fw || '';
+          $('uptime').textContent = (d.uptime !== undefined ? d.uptime : '');
         })
         .catch(() => {
+          $('uptime').textContent = '';
           fetch('/info', { cache: 'no-store' })
             .then(r => r.json())
             .then(d => {
@@ -228,6 +235,7 @@
 
       loadStatus();
       loadRegistry();
+      setInterval(loadStatus, 1000);
       setInterval(loadRegistry, 5000); // refresh every 5s
       hookNameForm();
       hookReboot();
