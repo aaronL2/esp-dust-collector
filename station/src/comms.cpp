@@ -95,11 +95,7 @@ void CommsClass::onReceive(const uint8_t *mac, const uint8_t *data, int len) {
   }
 
   if (len == 1 && (data[0] == 0 || data[0] == 1)) {
-    if (data[0] == 1) {
-      ServoControl.moveTo(90);  // open gate
-    } else {
-      ServoControl.moveTo(0);   // close gate
-    }
+    ServoControl.setGateOpen(data[0] == 1);
     return;
   }
 

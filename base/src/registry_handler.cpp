@@ -16,7 +16,7 @@ void updateStationRegistry(const String& mac, const String& name,
     file.close();
   }
 
-  JsonArray arr = doc.to<JsonArray>();
+  JsonArray arr = doc.is<JsonArray>() ? doc.as<JsonArray>() : doc.to<JsonArray>();
   JsonObject target;
   for (JsonObject obj : arr) {
     if (mac == obj["mac"].as<String>()) {
@@ -105,7 +105,7 @@ void setupRegistryRoutes(AsyncWebServer& server) {
     }
 
     // Ensure root is an array (AJv7: use to<JsonArray>() to coerce)
-    JsonArray arr = doc.to<JsonArray>();
+    JsonArray arr = doc.is<JsonArray>() ? doc.as<JsonArray>() : doc.to<JsonArray>();
 
     bool found = false;
     for (JsonObject obj : arr) {
@@ -153,7 +153,7 @@ void setupRegistryRoutes(AsyncWebServer& server) {
       file.close();
     }
 
-    JsonArray arr = doc.to<JsonArray>();
+    JsonArray arr = doc.is<JsonArray>() ? doc.as<JsonArray>() : doc.to<JsonArray>();
     bool removed = false;
     for (JsonArray::iterator it = arr.begin(); it != arr.end(); ++it) {
       JsonObject obj = *it;

@@ -1,14 +1,14 @@
 #include "servo_control.h"
 
 const int SERVO_PIN = 13;
-const int OPEN_ANGLE = 90;
-const int CLOSE_ANGLE = 0;
+const int OPEN_ANGLE = 0;
+const int CLOSE_ANGLE = 90;
 
 ServoControlClass ServoControl;  // define the instance
 
 void ServoControlClass::begin() {
     servo.attach(SERVO_PIN);
-    setGateOpen(false);
+    setGateOpen(true);
 }
 
 void ServoControlClass::moveTo(int angle) {
