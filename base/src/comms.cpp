@@ -50,7 +50,6 @@ struct StationState {
   bool above = false;
   bool pendingState = false;
   unsigned long stateChangeTime = 0;
-  unsigned long pendingDelay = 0;
   uint8_t mac[6] = {0};
   float offDelay = 0.0f;
 };
@@ -115,8 +114,10 @@ static void processPendingStates() {
   bool stateChanged = false;
   for (auto &kv : stationStates) {
     StationState &s = kv.second;
+    unsigned long delay =
+        s.pendingState ? kDebounceMs : (unsigned long)(s.offDelay * 1000);
     if (s.pendingState != s.above &&
-        now - s.stateChangeTime >= s.pendingDelay) {
+        now - s.stateChangeTime >= delay) {
       s.above = s.pendingState;
       stateChanged = true;
       if (!s.above) {
@@ -128,8 +129,9 @@ static void processPendingStates() {
   bool shouldBeActive = false;
   for (const auto &kv : stationStates) {
     const StationState &s = kv.second;
-    bool pendingOff = (!s.pendingState &&
-                       (now - s.stateChangeTime < s.pendingDelay));
+    unsigned long offDelayMs = (unsigned long)(s.offDelay * 1000);
+    bool pendingOff =
+        (!s.pendingState && (now - s.stateChangeTime < offDelayMs));
     if (s.above || pendingOff) {
       shouldBeActive = true;
       break;
@@ -247,15 +249,12 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
     } else if (s.pendingState == s.above) {
       s.pendingState = aboveReading;
       s.stateChangeTime = millis();
-      s.pendingDelay =
-          aboveReading
-              ? kDebounceMs
-              : (unsigned long)(s.offDelay * 1000);
       if (!aboveReading) {
+        unsigned long offDelayMs = (unsigned long)(s.offDelay * 1000);
         Serial.printf(
             "Station %s below threshold, keeping relay on for %lu ms\n",
-            macStr.c_str(), s.pendingDelay);
-     }
+            macStr.c_str(), offDelayMs);
+      }
     }
     processPendingStates();
   }
