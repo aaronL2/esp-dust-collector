@@ -94,8 +94,9 @@ void CommsClass::onReceive(const uint8_t *mac, const uint8_t *data, int len) {
     return;
   }
 
-  if (len == 1 && (data[0] == 0 || data[0] == 1)) {
-    ServoControl.setGateOpen(data[0] == 1);
+  if (len == 1) {
+    // Single-byte commands specify gate state directly (non-zero=open)
+    ServoControl.setGateOpen(data[0] != 0);
     return;
   }
 
