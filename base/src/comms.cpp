@@ -54,13 +54,13 @@ constexpr unsigned long kDebounceMs = 750;  // relay debounce period in ms
 
 static void processPendingStates() {
   unsigned long now = millis();
-  std::vector<String> changed;
+  bool stateChanged = false;
   for (auto &kv : stationStates) {
     StationState &s = kv.second;
     if (s.pendingState != s.above &&
         now - s.stateChangeTime >= s.pendingDelay) {
       s.above = s.pendingState;
-      changed.push_back(kv.first);
+      stateChanged = true;
       if (!s.above) {
         Serial.printf("Off-delay expired for %s\n", kv.first.c_str());
       }
@@ -82,11 +82,20 @@ static void processPendingStates() {
     relayActive = shouldBeActive;
     digitalWrite(RELAY_PIN,
                  relayActive ? RELAY_ON_LEVEL : RELAY_OFF_LEVEL);
-    uint8_t state = relayActive ? 1 : 0;
-    for (const auto &macStr : changed) {
-      auto it = stationStates.find(macStr);
-      if (it != stationStates.end()) {
-        esp_now_send(it->second.mac, &state, 1);
+    stateChanged = true;
+  }
+
+  if (stateChanged) {
+    if (shouldBeActive) {
+      for (const auto &kv : stationStates) {
+        const StationState &s = kv.second;
+        uint8_t state = s.above ? 1 : 0;
+        esp_now_send(s.mac, &state, 1);
+      }
+    } else {
+      uint8_t open = 1;
+      for (const auto &kv : stationStates) {
+        esp_now_send(kv.second.mac, &open, 1);
       }
     }
   }
