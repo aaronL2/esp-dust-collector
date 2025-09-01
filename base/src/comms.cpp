@@ -178,7 +178,7 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
             "Station %s below threshold, keeping relay on for %lu ms\n",
             macStr.c_str(), s.pendingDelay);
      }
-
+    }
     processPendingStates();
   }
 }
