@@ -10,6 +10,7 @@
 #include "pins.h"
 #include <map>
 #include <vector>
+#include <cstring>
 
 static String macToString(const uint8_t* mac) {
   char buf[18];
@@ -18,6 +19,7 @@ static String macToString(const uint8_t* mac) {
   return String(buf);
 }
 
+#ifndef UNIT_TEST
 static bool isRegisteredMac(const String& macStr) {
   File file = SPIFFS.open("/registry.json", "r");
   if (!file) return false;
@@ -35,6 +37,9 @@ static bool isRegisteredMac(const String& macStr) {
 
   return false;
 }
+#else
+static bool isRegisteredMac(const String&) { return true; }
+#endif
 
 // Tracks whether the dust collector relay is currently active
 static bool relayActive = false;
@@ -170,8 +175,19 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
 
     bool aboveReading = amps >= threshold;
     StationState &s = stationStates[macStr];
+    bool isNewStation = true;
+    for (uint8_t b : s.mac) {
+      if (b != 0) {
+        isNewStation = false;
+        break;
+      }
+    }
     s.current = amps;
     memcpy(s.mac, mac, 6);
+    if (isNewStation && relayActive) {
+      uint8_t state = s.above ? 1 : 0;
+      esp_now_send(s.mac, &state, 1);
+    }
 
     if (aboveReading == s.above) {
       s.pendingState = s.above;
