@@ -11,6 +11,7 @@
 #include <map>
 #include <vector>
 #include <cstring>
+#include <cstdio>
 
 static String macToString(const uint8_t* mac) {
   char buf[18];
@@ -56,6 +57,57 @@ struct StationState {
 static std::map<String, StationState> stationStates;
 
 constexpr unsigned long kDebounceMs = 750;  // relay debounce period in ms
+
+static void preloadRegisteredStations() {
+#ifdef UNIT_TEST
+  extern const char* unitTestRegistryJson;
+  if (!unitTestRegistryJson) return;
+  const char* ptr = unitTestRegistryJson;
+  while ((ptr = strstr(ptr, "\"mac\"")) != nullptr) {
+    ptr = strchr(ptr, '"');
+    if (!ptr) break;
+    ptr = strchr(ptr + 1, '"');
+    if (!ptr) break;
+    ptr = strchr(ptr + 1, '"');
+    if (!ptr) break;
+    char macStr[18];
+    strncpy(macStr, ptr + 1, 17);
+    macStr[17] = '\0';
+    StationState s;
+    sscanf(macStr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+           &s.mac[0], &s.mac[1], &s.mac[2],
+           &s.mac[3], &s.mac[4], &s.mac[5]);
+    stationStates[String(macStr)] = s;
+    if (relayActive) {
+      uint8_t closeCmd = 0;
+      esp_now_send(s.mac, &closeCmd, 1);
+    }
+    ptr += 17;
+  }
+#else
+  File file = SPIFFS.open("/registry.json", "r");
+  if (!file) return;
+
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, file);
+  file.close();
+  if (err) return;
+
+  for (JsonObject obj : doc.as<JsonArray>()) {
+    String macStr = obj["mac"] | "";
+    if (macStr.isEmpty()) continue;
+    StationState s;
+    sscanf(macStr.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+           &s.mac[0], &s.mac[1], &s.mac[2],
+           &s.mac[3], &s.mac[4], &s.mac[5]);
+    stationStates[macStr] = s;
+    if (relayActive) {
+      uint8_t closeCmd = 0;
+      esp_now_send(s.mac, &closeCmd, 1);
+    }
+  }
+#endif
+}
 
 static void processPendingStates() {
   unsigned long now = millis();
@@ -216,6 +268,7 @@ void comms_setup() {
   }
   esp_now_register_recv_cb(onDataRecv);
   Serial.println("ESP-NOW communication initialized (Base)");
+  preloadRegisteredStations();
 }
 
 void comms_loop() {

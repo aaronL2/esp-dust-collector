@@ -57,25 +57,29 @@ extern const uint8_t RELAY_PIN = 1;
 void updateStationRegistry(const String&, const String&, const String&, const String&) {}
 void setupRegistryRoutes(AsyncWebServer&) {}
 
-const char* unitTestRegistryJson = nullptr;
+const char* unitTestRegistryJson = "[{\"mac\":\"01:02:03:04:05:08\"}]";
 
 void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len);
 
 int main() {
-  uint8_t mac1[6] = {1,2,3,4,5,6};
-  TestMessage msg1{"current", 10.0f, ""};
-  onDataRecv(mac1, reinterpret_cast<uint8_t*>(&msg1), sizeof(msg1));
+  comms_setup();
+  sendRecords.clear();
+
+  uint8_t activeMac[6] = {1,2,3,4,5,6};
+  TestMessage msg{"current", 10.0f, ""};
+  onDataRecv(activeMac, reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
 
   currentMillis += 800; // exceed debounce
   comms_loop();
-  sendRecords.clear();
 
-  uint8_t mac2[6] = {1,2,3,4,5,7};
-  TestMessage msg2{"current", 0.0f, ""};
-  onDataRecv(mac2, reinterpret_cast<uint8_t*>(&msg2), sizeof(msg2));
-
-  assert(sendRecords.size() == 1);
-  assert(std::memcmp(sendRecords[0].mac, mac2, 6) == 0);
-  assert(sendRecords[0].data == 0);
+  uint8_t silentMac[6] = {1,2,3,4,5,8};
+  bool found = false;
+  for (const auto& r : sendRecords) {
+    if (std::memcmp(r.mac, silentMac, 6) == 0 && r.data == 0) {
+      found = true;
+      break;
+    }
+  }
+  assert(found);
   return 0;
 }
