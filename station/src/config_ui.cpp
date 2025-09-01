@@ -35,6 +35,7 @@ public:
       doc["mdns"] = configUI.getMdnsName() + ".local";
       doc["fw"]   = Version::firmware();
       doc["amps"] = CurrentSensor.read();
+      doc["uptime"] = (uint32_t)(millis() / 1000);
       String out; serializeJson(doc, out);
       req->send(200, "application/json", out);
     });

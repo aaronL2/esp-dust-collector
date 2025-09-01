@@ -88,6 +88,11 @@
             <div class="value" id="amps">…</div>
             <div class="actions"></div>
           </div>
+          <div class="row">
+            <div class="label">Uptime</div>
+            <div class="value" id="uptime">…</div>
+            <div class="actions"></div>
+          </div>
         </div>
       </div>
 
@@ -141,6 +146,7 @@
           $('mac').textContent = d.mac || '';
           $('fw').textContent = d.fw || '';
           $('amps').textContent = (d.amps !== undefined ? (Number(d.amps).toFixed(2) + ' A') : '');
+          $('uptime').textContent = d.uptime || '';
         })
         .catch(() => {
           fetch('/info', { cache: 'no-store' })
@@ -152,6 +158,7 @@
               $('mac').textContent = d.mac || '';
               $('fw').textContent = '(unknown)';
               $('amps').textContent = '(unknown)';
+              $('uptime').textContent = '';
             });
         });
     }
