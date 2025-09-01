@@ -6,9 +6,11 @@
 #include <esp_now.h>
 #include <esp_err.h>
 #include <cstdio>
+#include "comms.h"
 
 void updateStationRegistry(const String& mac, const String& name,
-                           const String& fw, const String& timestamp) {
+                           const String& fw, const String& timestamp,
+                           float offDelay) {
   JsonDocument doc;
   File file = SPIFFS.open("/registry.json", "r");
   if (file) {
@@ -53,6 +55,12 @@ void updateStationRegistry(const String& mac, const String& name,
     target["timestamp"] = String(millis());
   }
 
+  if (offDelay >= 0) {
+    target["off_delay"] = offDelay;
+  } else if (!target.containsKey("off_delay")) {
+    target["off_delay"] = 0.0f;
+  }
+
   file = SPIFFS.open("/registry.json", "w");
   if (file) {
     serializeJson(doc, file);
@@ -61,6 +69,8 @@ void updateStationRegistry(const String& mac, const String& name,
     Serial.printf("Registry updated: %s\n", debug.c_str());
     file.close();
   }
+
+  setStationOffDelay(mac, target["off_delay"] | 0.0f);
 }
 
 void setupRegistryRoutes(AsyncWebServer& server) {
@@ -89,6 +99,7 @@ void setupRegistryRoutes(AsyncWebServer& server) {
     const String newMac  = incoming["mac"]  | "";
     String newFw = incoming["fw"] | "";
     if (newFw.isEmpty()) newFw = incoming["version"] | "";
+    float newOffDelay = incoming["off_delay"] | -1.0f;
     if (newName.isEmpty() || newMac.isEmpty()) {
       JsonDocument doc;
       doc["error"] = "Missing name or mac";
@@ -112,6 +123,7 @@ void setupRegistryRoutes(AsyncWebServer& server) {
       if (newMac == obj["mac"].as<String>()) {
         obj["name"] = newName;
         if (!newFw.isEmpty()) obj["fw"] = newFw;
+        if (newOffDelay >= 0) obj["off_delay"] = newOffDelay;
         found = true;
         break;
       }
@@ -122,17 +134,82 @@ void setupRegistryRoutes(AsyncWebServer& server) {
       entry["name"] = newName;     // <- fixed typo: was newObj
       entry["mac"]  = newMac;
       if (!newFw.isEmpty()) entry["fw"] = newFw;
+      if (newOffDelay >= 0) entry["off_delay"] = newOffDelay;
     }
 
     file = SPIFFS.open("/registry.json", "w");
     serializeJson(doc, file);
     file.close();
 
+    if (newOffDelay >= 0) {
+      setStationOffDelay(newMac, newOffDelay);
+    }
+
     JsonDocument resp;
     resp["success"] = true;
     String out; serializeJson(resp, out);
     request->send(200, "application/json", out);
-  } 
+  }
+  );
+
+  server.on("/registry", HTTP_PATCH, [](AsyncWebServerRequest *request) {}, nullptr,
+  [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
+    JsonDocument incoming;
+    DeserializationError err = deserializeJson(incoming, data, len);
+    if (err) {
+      JsonDocument doc;
+      doc["error"] = "Invalid JSON";
+      String out; serializeJson(doc, out);
+      request->send(400, "application/json", out);
+      return;
+    }
+
+    String mac = incoming["mac"] | "";
+    float offDelay = incoming["off_delay"] | -1.0f;
+    if (mac.isEmpty() || offDelay < 0) {
+      JsonDocument doc;
+      doc["error"] = "Missing mac or off_delay";
+      String out; serializeJson(doc, out);
+      request->send(400, "application/json", out);
+      return;
+    }
+
+    JsonDocument doc;
+    File file = SPIFFS.open("/registry.json", "r");
+    if (file) {
+      deserializeJson(doc, file);
+      file.close();
+    }
+
+    JsonArray arr = doc.is<JsonArray>() ? doc.as<JsonArray>() : doc.to<JsonArray>();
+    bool found = false;
+    for (JsonObject obj : arr) {
+      if (mac == obj["mac"].as<String>()) {
+        obj["off_delay"] = offDelay;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      JsonDocument resp;
+      resp["error"] = "Not found";
+      String out; serializeJson(resp, out);
+      request->send(404, "application/json", out);
+      return;
+    }
+
+    file = SPIFFS.open("/registry.json", "w");
+    serializeJson(doc, file);
+    file.close();
+
+    setStationOffDelay(mac, offDelay);
+
+    JsonDocument resp;
+    resp["success"] = true;
+    String out; serializeJson(resp, out);
+    request->send(200, "application/json", out);
+  }
   );
 
   server.on("/registry", HTTP_DELETE, [](AsyncWebServerRequest *request) {

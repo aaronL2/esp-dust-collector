@@ -52,9 +52,14 @@ struct StationState {
   unsigned long stateChangeTime = 0;
   unsigned long pendingDelay = 0;
   uint8_t mac[6] = {0};
+  float offDelay = 0.0f;
 };
 
 static std::map<String, StationState> stationStates;
+
+void setStationOffDelay(const String& mac, float offDelay) {
+  stationStates[mac].offDelay = offDelay;
+}
 
 constexpr unsigned long kDebounceMs = 750;  // relay debounce period in ms
 
@@ -62,27 +67,22 @@ static void preloadRegisteredStations() {
 #ifdef UNIT_TEST
   extern const char* unitTestRegistryJson;
   if (!unitTestRegistryJson) return;
-  const char* ptr = unitTestRegistryJson;
-  while ((ptr = strstr(ptr, "\"mac\"")) != nullptr) {
-    ptr = strchr(ptr, '"');
-    if (!ptr) break;
-    ptr = strchr(ptr + 1, '"');
-    if (!ptr) break;
-    ptr = strchr(ptr + 1, '"');
-    if (!ptr) break;
-    char macStr[18];
-    strncpy(macStr, ptr + 1, 17);
-    macStr[17] = '\0';
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, unitTestRegistryJson);
+  if (err) return;
+  for (JsonObject obj : doc.as<JsonArray>()) {
+    String macStr = obj["mac"] | "";
+    if (macStr.isEmpty()) continue;
     StationState s;
-    sscanf(macStr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+    sscanf(macStr.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
            &s.mac[0], &s.mac[1], &s.mac[2],
            &s.mac[3], &s.mac[4], &s.mac[5]);
-    stationStates[String(macStr)] = s;
+    s.offDelay = obj["off_delay"] | 0.0f;
+    stationStates[macStr] = s;
     if (relayActive) {
       uint8_t closeCmd = 0;
       esp_now_send(s.mac, &closeCmd, 1);
     }
-    ptr += 17;
   }
 #else
   File file = SPIFFS.open("/registry.json", "r");
@@ -100,6 +100,7 @@ static void preloadRegisteredStations() {
     sscanf(macStr.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
            &s.mac[0], &s.mac[1], &s.mac[2],
            &s.mac[3], &s.mac[4], &s.mac[5]);
+    s.offDelay = obj["off_delay"] | 0.0f;
     stationStates[macStr] = s;
     if (relayActive) {
       uint8_t closeCmd = 0;
@@ -249,7 +250,7 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
       s.pendingDelay =
           aboveReading
               ? kDebounceMs
-              : (unsigned long)(configUI.getCollectorOffDelay() * 1000);
+              : (unsigned long)(s.offDelay * 1000);
       if (!aboveReading) {
         Serial.printf(
             "Station %s below threshold, keeping relay on for %lu ms\n",

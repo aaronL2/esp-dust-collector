@@ -5,3 +5,4 @@
 
 void comms_setup();
 void comms_loop();
+void setStationOffDelay(const String& mac, float offDelay);

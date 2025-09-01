@@ -54,7 +54,7 @@ ConfigUI& configUI = dummyConfigUI;
 bool mdnsStarted = false;
 extern const uint8_t RELAY_PIN = 1;
 
-void updateStationRegistry(const String&, const String&, const String&, const String&) {}
+void updateStationRegistry(const String&, const String&, const String&, const String&, float) {}
 void setupRegistryRoutes(AsyncWebServer&) {}
 
 const char* unitTestRegistryJson = "[{\"mac\":\"01:02:03:04:05:08\"}]";
