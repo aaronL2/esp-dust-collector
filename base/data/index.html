@@ -82,8 +82,8 @@
             <div class="actions"></div>
           </div>
           <div class="row">
-            <div class="label">Uptime</div>
-            <div class="value" id="uptime">…</div>
+            <div class="label">Boot Time</div>
+            <div class="value" id="boot">…</div>
             <div class="actions"></div>
           </div>
           <div class="row">
@@ -124,7 +124,7 @@
         <div style="overflow:auto">
           <table id="stationsTable" aria-label="Registered Stations">
             <thead>
-              <tr><th>Name</th><th>MAC</th><th>FW</th><th>Off Delay (s)</th><th>Actions</th></tr>
+              <tr><th>Name</th><th>MAC</th><th>FW</th><th>Off Delay (s)</th><th>Calibrate</th><th>Actions</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -147,10 +147,10 @@
           $('mdns').textContent = d.mdns || '';
           $('mac').textContent = d.mac || '';
           $('fw').textContent = d.fw || '';
-          $('uptime').textContent = (d.uptime !== undefined ? d.uptime : '');
+          $('boot').textContent = d.uptime !== undefined ? new Date(Date.now() - d.uptime * 1000).toLocaleString() : '';
         })
         .catch(() => {
-          $('uptime').textContent = '';
+          $('boot').textContent = '';
           fetch('/info', { cache: 'no-store' })
             .then(r => r.json())
             .then(d => {
@@ -170,6 +170,51 @@
         .catch(() => alert('Failed to unregister'));
     }
 
+    function calibrateStation(mac, statusEl, btn) {
+      const step = btn.dataset.step || 'start';
+      if (step === 'start') {
+        statusEl.textContent = 'Sampling…';
+        fetch('/calibrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mac, step: 'start' })
+        })
+        .then(r => r.json())
+        .then(() => {
+          statusEl.textContent = 'Turn tool on';
+          btn.textContent = 'Done';
+          btn.dataset.step = 'finish';
+        })
+        .catch(() => {
+          statusEl.textContent = 'Error';
+          btn.textContent = 'Calibrate';
+          btn.dataset.step = 'start';
+        });
+      } else {
+        statusEl.textContent = 'Sampling…';
+        fetch('/calibrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mac, step: 'finish' })
+        })
+        .then(r => r.json())
+        .then(d => {
+          if (typeof d.threshold === 'number') {
+            statusEl.textContent = d.threshold.toFixed(2) + ' A';
+          } else {
+            statusEl.textContent = 'Error';
+          }
+          btn.textContent = 'Calibrate';
+          btn.dataset.step = 'start';
+        })
+        .catch(() => {
+          statusEl.textContent = 'Error';
+          btn.textContent = 'Calibrate';
+          btn.dataset.step = 'start';
+        });
+      }
+    }
+
     function loadRegistry() {
       fetch('/registry.json', { cache: 'no-store' })
         .then(r => r.json())
@@ -178,14 +223,18 @@
           tbody.innerHTML = '';
           (list || []).forEach(entry => {
             const tr = document.createElement('tr');
+            const status = (typeof entry.tool_on_threshold === 'number' && entry.tool_on_threshold > 0)
+              ? entry.tool_on_threshold.toFixed(2) + ' A'
+              : 'Uncalibrated';
             tr.innerHTML =
               `<td>${entry.name || ''}</td>` +
               `<td>${entry.mac || ''}</td>` +
               `<td>${entry.fw || entry.version || ''}</td>` +
               `<td><input type="number" step="0.1" min="0" value="${typeof entry.off_delay === 'number' ? entry.off_delay : 0}" style="width:80px; padding:6px 8px; border-radius:8px; border:1px solid #2b3042; background:#0c1018; color:var(--fg);" /></td>` +
-              `<td><button class="btn" data-mac="${entry.mac || ''}">Unregister</button></td>`;
-            const btn = tr.querySelector('button');
-            btn.addEventListener('click', () => unregisterStation(entry.mac || ''));
+              `<td><span class="cal-status">${status}</span> <button class="btn calibrate" data-step="start">Calibrate</button></td>` +
+              `<td><button class="btn unregister" data-mac="${entry.mac || ''}">Unregister</button></td>`;
+            const unregBtn = tr.querySelector('.unregister');
+            unregBtn.addEventListener('click', () => unregisterStation(entry.mac || ''));
             const input = tr.querySelector('input');
             input.addEventListener('change', () => {
               const val = parseFloat(input.value);
@@ -198,6 +247,9 @@
                 .then(() => loadRegistry())
                 .catch(() => alert('Failed to update off delay'));
             });
+            const calibBtn = tr.querySelector('.calibrate');
+            const statusEl = tr.querySelector('.cal-status');
+            calibBtn.addEventListener('click', () => calibrateStation(entry.mac || '', statusEl, calibBtn));
             tbody.appendChild(tr);
           });
           $('stationsHint').textContent = list?.length ? `${list.length} station(s)` : 'No stations registered yet.';
@@ -235,7 +287,6 @@
 
       loadStatus();
       loadRegistry();
-      setInterval(loadStatus, 1000);
       setInterval(loadRegistry, 5000); // refresh every 5s
       hookNameForm();
       hookReboot();

@@ -52,12 +52,33 @@ struct StationState {
   unsigned long stateChangeTime = 0;
   uint8_t mac[6] = {0};
   float offDelay = 0.0f;
+  float threshold = 0.0f;
 };
 
 static std::map<String, StationState> stationStates;
 
 void setStationOffDelay(const String& mac, float offDelay) {
   stationStates[mac].offDelay = offDelay;
+}
+
+void setStationThreshold(const String& mac, float threshold) {
+  stationStates[mac].threshold = threshold;
+}
+
+float getStationCurrent(const String& mac) {
+  auto it = stationStates.find(mac);
+  if (it == stationStates.end()) return 0.0f;
+  return it->second.current;
+}
+
+void sendRecalibrateCommand(const String& mac) {
+  auto it = stationStates.find(mac);
+  if (it == stationStates.end()) return;
+  JsonDocument doc;
+  doc["type"] = "recalibrate";
+  uint8_t buf[32];
+  size_t len = serializeJson(doc, buf);
+  esp_now_send(it->second.mac, buf, len);
 }
 
 constexpr unsigned long kDebounceMs = 750;  // relay debounce period in ms
@@ -77,6 +98,7 @@ static void preloadRegisteredStations() {
            &s.mac[0], &s.mac[1], &s.mac[2],
            &s.mac[3], &s.mac[4], &s.mac[5]);
     s.offDelay = obj["off_delay"] | 0.0f;
+    s.threshold = obj["tool_on_threshold"] | 0.0f;
     stationStates[macStr] = s;
     if (relayActive) {
       uint8_t closeCmd = 0;
@@ -100,6 +122,7 @@ static void preloadRegisteredStations() {
            &s.mac[0], &s.mac[1], &s.mac[2],
            &s.mac[3], &s.mac[4], &s.mac[5]);
     s.offDelay = obj["off_delay"] | 0.0f;
+    s.threshold = obj["tool_on_threshold"] | 0.0f;
     stationStates[macStr] = s;
     if (relayActive) {
       uint8_t closeCmd = 0;
@@ -225,11 +248,11 @@ void onDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
       return;
     }
     float amps = doc["amps"] | 0.0f;
-    float threshold = configUI.getToolOnThreshold();
+    StationState &s = stationStates[macStr];
+    float threshold = s.threshold > 0.0f ? s.threshold : configUI.getToolOnThreshold();
     Serial.printf("ESP-NOW Current: %.2f A from %s\n", amps, macStr.c_str());
 
     bool aboveReading = amps >= threshold;
-    StationState &s = stationStates[macStr];
     bool isNewStation = true;
     for (uint8_t b : s.mac) {
       if (b != 0) {

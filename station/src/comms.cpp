@@ -2,6 +2,7 @@
 #include "servo_control.h"
 #include <ArduinoJson.h>
 #include <config_ui.h>
+#include "current_sensor.h"
 #include <cstring>
 #include <cstdio>
 #include "version.h"
@@ -112,6 +113,8 @@ void CommsClass::onReceive(const uint8_t *mac, const uint8_t *data, int len) {
     registerAck = true;
   } else if (type == "unregister") {
     registered = false;
+  } else if (type == "recalibrate") {
+    CurrentSensor.recalibrate();
   }
 }
 
