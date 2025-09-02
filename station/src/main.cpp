@@ -29,7 +29,9 @@ static DisplayStatus status(display.getU8g2());
 static unsigned long lastOledUpdate = 0;
 static const unsigned long OLED_UPDATE_MS = 1000;
 static unsigned long lastCurrentSend = 0;
-static const unsigned long CURRENT_SEND_MS = 1000;
+static const unsigned long DEFAULT_CURRENT_SEND_MS = 1000;
+static const unsigned long FAST_CURRENT_SEND_MS = 200;
+volatile unsigned long fastCurrentSendUntil = 0;
 bool registered = false;
 static unsigned long lastRegisterAttempt = 0;
 static const unsigned long REGISTER_RETRY_MS = 10000;
@@ -87,7 +89,10 @@ void loop() {
   lastCurrentReading = current;
   Serial.printf("Current: %.2f A\n", current);
   now = millis();
-  if (now - lastCurrentSend >= CURRENT_SEND_MS) {
+  unsigned long interval =
+      (fastCurrentSendUntil && now < fastCurrentSendUntil) ?
+          FAST_CURRENT_SEND_MS : DEFAULT_CURRENT_SEND_MS;
+  if (now - lastCurrentSend >= interval) {
     if (registered) {
       comms.sendCurrent(current);
     }

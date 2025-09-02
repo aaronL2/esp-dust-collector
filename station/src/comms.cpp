@@ -8,6 +8,7 @@
 #include "version.h"
 
 extern bool registered;
+extern volatile unsigned long fastCurrentSendUntil;
 
 const uint8_t broadcastMac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 CommsClass comms;
@@ -113,8 +114,13 @@ void CommsClass::onReceive(const uint8_t *mac, const uint8_t *data, int len) {
     registerAck = true;
   } else if (type == "unregister") {
     registered = false;
-  } else if (type == "recalibrate") {
+  } else if (type == "calibrate" || type == "recalibrate") {
     CurrentSensor.recalibrate();
+    comms.sendCurrent(CurrentSensor.read());
+    bool fast = doc["fast"] | false;
+    if (fast) {
+      fastCurrentSendUntil = millis() + 5000;
+    }
   }
 }
 
